@@ -296,6 +296,55 @@
   .fab-spacer{height:10px;}
   ::selection{background:var(--orange); color:#1c1200;}
 
+  /* ---------- truck + auto row ---------- */
+  .ops-row{display:flex; gap:8px; margin-top:12px;}
+  .topbar-actions button{white-space:nowrap;}
+  @media (max-width: 440px){
+    .brand .display{font-size:19px;}
+    .topbar-actions{gap:6px;}
+    .topbar-actions .icon-btn, .topbar-actions .btn-primary{padding:9px 10px;}
+  }
+  .truck-chip{
+    flex:1; min-width:0; display:flex; align-items:center; gap:8px; text-align:left;
+    background:var(--paper); color:var(--ink); border:0; border-radius:var(--radius);
+    padding:9px 12px; font-weight:900; font-size:15px;
+  }
+  .truck-chip .tlabel{font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); font-weight:800;}
+  .truck-chip .tname{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:"SF Mono",Menlo,monospace;}
+  .truck-chip .caret{color:var(--muted);}
+  .auto-btn{
+    flex:0 0 auto; background:var(--asphalt-2); border:1px solid #4a463f; color:#c9bfae;
+    border-radius:var(--radius); padding:9px 14px; font-weight:900; font-size:13px; text-transform:uppercase; letter-spacing:0.05em;
+  }
+  .auto-btn.on{background:var(--delivered); border-color:#2b6845; color:#fff;}
+  .auto-banner{
+    display:none; margin-top:8px; padding:8px 10px; border-radius:var(--radius);
+    background:#18301f; border:1px solid #2b6845; color:#bfe3cb; font-size:12px; line-height:1.45;
+  }
+  .auto-banner.show{display:block;}
+  .auto-banner.warn{background:#3a2a10; border-color:var(--enroute); color:#f1d9a6;}
+  .auto-banner b{color:#fff;}
+  .truck-list{display:flex; flex-direction:column; gap:8px; margin-bottom:14px;}
+  .truck-opt{display:flex; gap:8px;}
+  .truck-opt .pick{
+    flex:1; text-align:left; padding:14px; border-radius:var(--radius); font-size:17px; font-weight:900;
+    background:var(--asphalt-2); border:1px solid #4a463f; color:var(--paper); font-family:"SF Mono",Menlo,monospace;
+  }
+  .truck-opt .pick.on{background:var(--orange); border-color:var(--orange-dark); color:#1c1200;}
+  .truck-opt .rm{width:52px; background:transparent; border:1px solid #4a463f; color:var(--cancelled); border-radius:var(--radius); font-size:16px; font-weight:900;}
+  .add-truck{display:flex; gap:8px;}
+  .add-truck input{flex:1; min-width:0; background:var(--asphalt-2); border:1px solid #3a3733; color:var(--paper); padding:12px; border-radius:var(--radius); font-size:16px;}
+  .add-truck button{padding:0 18px; background:var(--paper); color:var(--ink); border:0; border-radius:var(--radius); font-weight:900; text-transform:uppercase;}
+  .pin-row{display:flex; gap:8px;}
+  .pin-row input{flex:1; min-width:0;}
+  .pin-btn{flex:0 0 auto; background:var(--asphalt-2); border:1px solid #4a463f; color:var(--paper); border-radius:var(--radius); padding:0 12px; font-size:12px; font-weight:900; text-transform:uppercase; white-space:nowrap;}
+  .auto-box{background:var(--asphalt-2); border:1px solid #3a3733; border-radius:var(--radius); padding:12px; margin-bottom:12px;}
+  .auto-box > label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#9c8f7c; margin-bottom:6px; font-weight:700;}
+  .auto-box select{width:100%; background:var(--asphalt); border:1px solid #3a3733; color:var(--paper); padding:10px; border-radius:var(--radius); font-size:15px; margin-top:8px;}
+  .auto-box .btn-row{margin-top:10px;}
+  .link-out{margin-top:8px; font-family:"SF Mono",Menlo,monospace; font-size:11px; color:#c9bfae; word-break:break-all; background:var(--asphalt); padding:8px; border-radius:var(--radius); display:none;}
+  .auto-tag{border-color:var(--delivered) !important; color:var(--delivered) !important;}
+
   /* ---------- report ---------- */
   .report-paper{
     background:var(--paper); color:var(--ink); border-radius:var(--radius);
@@ -347,6 +396,12 @@
     </div>
   </div>
 
+  <div class="ops-row">
+    <button class="truck-chip" id="truckBtn"><span class="tlabel">Truck</span><span class="tname" id="truckName">Pick truck</span><span class="caret">▾</span></button>
+    <button class="auto-btn" id="autoBtn" title="Count loads automatically when you reach a job's pin">Auto · Off</button>
+  </div>
+  <div class="auto-banner" id="autoBanner"></div>
+
   <div class="stats">
     <div class="stat scheduled"><div class="num" id="statScheduled">0</div><div class="lbl">Scheduled</div></div>
     <div class="stat enroute"><div class="num" id="statEnroute">0</div><div class="lbl">En Route</div></div>
@@ -395,13 +450,19 @@
 
     <div class="field">
       <label>Pickup — address or paste map link</label>
-      <input type="text" id="f_pickupInput" placeholder="Paste Google/Apple Maps link or type address">
+      <div class="pin-row">
+        <input type="text" id="f_pickupInput" placeholder="Paste Google/Apple Maps link or type address">
+        <button type="button" class="pin-btn" id="pinPickup">📍 Pin here</button>
+      </div>
       <div class="map-hint" id="pickupHint"></div>
     </div>
 
     <div class="field">
       <label>Drop-off — address or paste map link</label>
-      <input type="text" id="f_dropoffInput" placeholder="Paste Google/Apple Maps link or type address">
+      <div class="pin-row">
+        <input type="text" id="f_dropoffInput" placeholder="Paste Google/Apple Maps link or type address">
+        <button type="button" class="pin-btn" id="pinDropoff">📍 Pin here</button>
+      </div>
       <div class="map-hint" id="dropoffHint"></div>
     </div>
 
@@ -410,7 +471,12 @@
         <label>Material</label>
         <input type="text" id="f_material" placeholder="e.g. Class 5, Fill Dirt">
       </div>
+      <div class="field" id="truckField">
+        <label id="f_truckLabel">Truck</label>
+        <input type="text" id="f_truck" list="truckOptions" placeholder="e.g. 12">
+      </div>
     </div>
+    <datalist id="truckOptions"></datalist>
 
     <div class="field">
       <label id="f_qtyLabel">Amount per load</label>
@@ -436,6 +502,26 @@
     <div class="field">
       <label>Ticket #</label>
       <input type="text" id="f_ticket" inputmode="numeric" placeholder="Optional">
+    </div>
+
+    <div class="auto-box" id="autoBox">
+      <label>Auto-count</label>
+      <div class="seg" id="autoSeg">
+        <button type="button" data-auto="">Off</button>
+        <button type="button" data-auto="dropoff">At drop-off</button>
+        <button type="button" data-auto="pickup">At pickup</button>
+      </div>
+      <select id="f_radius">
+        <option value="91">Count within 300 ft of the pin</option>
+        <option value="152" selected>Count within 500 ft of the pin</option>
+        <option value="305">Count within 1,000 ft of the pin</option>
+        <option value="457">Count within 1,500 ft of the pin</option>
+      </select>
+      <div class="map-hint" id="autoHint"></div>
+      <div class="btn-row">
+        <button type="button" id="copyAutoLink">Copy auto-add link</button>
+      </div>
+      <div class="link-out" id="linkOut"></div>
     </div>
 
     <div class="field" id="loadCountField">
@@ -493,6 +579,26 @@
   </div>
 </div>
 
+<!-- Truck Modal -->
+<div class="modal-backdrop" id="truckModalBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Which truck are you in?</h2>
+    <div class="truck-list" id="truckList"></div>
+    <div class="field">
+      <label>Add a truck</label>
+      <div class="add-truck">
+        <input type="text" id="newTruck" placeholder="Unit # or name, e.g. 12">
+        <button type="button" id="addTruckBtn">Add</button>
+      </div>
+    </div>
+    <div class="map-hint">Every load and clock entry is stamped with the truck picked here when you log it.</div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="closeTruckBtn">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Report Modal -->
 <div class="modal-backdrop" id="reportModalBackdrop">
   <div class="modal">
@@ -504,8 +610,8 @@
         <input type="date" id="rp_date">
       </div>
       <div class="field">
-        <label>Driver / truck</label>
-        <input type="text" id="rp_driver" placeholder="e.g. Tim · Truck 12">
+        <label>Driver</label>
+        <input type="text" id="rp_driver" placeholder="e.g. Tim Brinkman">
       </div>
     </div>
     <div class="report-paper" id="reportPaper"></div>
@@ -564,6 +670,10 @@
         <label>End</label>
         <input type="time" id="tm_end">
       </div>
+    </div>
+    <div class="field">
+      <label>Truck</label>
+      <input type="text" id="tm_truck" list="truckOptions" placeholder="Optional">
     </div>
     <div class="map-hint" id="tmHint"></div>
     <div class="modal-buttons">
@@ -627,7 +737,7 @@
         <h3>Backup</h3>
         <p>Your loads live only on this device. If the browser's site data gets cleared or the app is uninstalled, they're gone. A backup file saves everything; keep it in Files/Downloads or email it to yourself. It also moves your loads between devices.</p>
         <p>Last backup: <span class="backup-status" id="backupStatus">never</span></p>
-        <p style="margin-top:6px; font-size:11px;">App version 2026.10.20-1</p>
+        <p style="margin-top:6px; font-size:11px;">App version 2026.10.20-2</p>
         <div class="btn-row">
           <button class="go" id="backupBtn">Save backup</button>
           <label class="icon-btn" for="restoreFile" style="flex:1; justify-content:center; text-transform:uppercase; font-size:12px; font-weight:800; letter-spacing:0.03em;">Restore backup</label>
@@ -731,9 +841,16 @@
   let pickupStore = {}, dropoffStore = {};
   let currentStatus = "Scheduled";
 
+  let newJobId = null;
   function openLoadModal(existing){
     document.getElementById("loadModalTitle").textContent = existing ? "Edit Load" : "New Load";
     document.getElementById("editId").value = existing ? existing.id : "";
+    newJobId = existing ? null : uid();
+    document.getElementById("f_truck").value = existing ? (existing.truck || "") : curTruck();
+    refreshTruckOptions();
+    currentAuto = existing ? (existing.autoAt || "") : "";
+    document.getElementById("f_radius").value = String(existing && existing.autoRadius ? existing.autoRadius : 152);
+    document.getElementById("linkOut").style.display = "none";
     document.getElementById("f_date").value = existing ? existing.date : localDay();
     document.getElementById("f_customer").value = existing ? existing.customer : "";
     document.getElementById("f_material").value = existing ? existing.material : "";
@@ -755,6 +872,7 @@
     renderStatusSelect();
     document.getElementById("f_count").value = 1;
     renderSegs();
+    renderAutoSeg();
     document.getElementById("loadModalBackdrop").classList.add("open");
   }
   function closeLoadModal(){
@@ -770,6 +888,9 @@
     document.querySelectorAll('#modeSeg [data-mode=fixed], #modeSeg [data-mode=ticket]').forEach(b => b.style.display = editingHourly ? "none" : "");
     fieldOf("f_qty").style.display = hourly ? "none" : "";
     fieldOf("f_ticket").style.display = hourly ? "none" : "";
+    document.getElementById("truckField").style.display = hourly ? "none" : "";
+    document.getElementById("f_truckLabel").textContent = editing ? "Truck (this load)" : "Truck";
+    if(typeof renderAutoSeg === "function") renderAutoSeg();
     fieldOf("statusSelect").style.display = hourly ? "none" : "";
     document.getElementById("loadCountField").style.display = (editing || hourly) ? "none" : "block";
     document.getElementById("modeField").style.display = editingHourly ? "none" : "";
@@ -805,7 +926,7 @@
   });
 
   function saveLoadFromForm(){
-    const id = document.getElementById("editId").value || uid();
+    const id = document.getElementById("editId").value || newJobId || uid();
     // if raw text typed without being parsed via input event (e.g. autofill), parse now as fallback
     if(!pickupStore.address){
       pickupStore = parseMapLink(document.getElementById("f_pickupInput").value);
@@ -827,13 +948,17 @@
       ticketNo: document.getElementById("f_ticket").value.trim(),
       status: currentStatus,
       notes: document.getElementById("f_notes").value.trim(),
+      truck: document.getElementById("f_truck").value.trim(),
+      autoAt: currentAuto,
+      autoRadius: parseInt(document.getElementById("f_radius").value, 10) || 152,
       createdAt: (loads.find(l=>l.id===id) || {}).createdAt || new Date().toISOString()
     };
+    if(rec.truck) rememberTruck(rec.truck);
     const idx = loads.findIndex(l => l.id === id);
     if(currentMode === "hourly"){
       const old = idx >= 0 ? loads[idx] : null;
       Object.assign(rec, {
-        billing: "hourly", qty: "", ticketNo: "", ticketMode: false,
+        billing: "hourly", qty: "", ticketNo: "", ticketMode: false, truck: "", autoAt: "",
         entries: old ? (old.entries || []) : [],
         status: old ? old.status : "Scheduled", jobId: id, loadNum: 1
       });
@@ -859,6 +984,8 @@
           x.unit = rec.unit;
           x.ticketMode = rec.ticketMode;
           x.perLoad = rec.perLoad;
+          x.autoAt = rec.autoAt;
+          x.autoRadius = rec.autoRadius;
         }
       });
     } else {
@@ -869,6 +996,7 @@
         batch.push(Object.assign({}, rec, {
           id: i === 1 ? id : uid(),
           ticketNo: i === 1 ? rec.ticketNo : "",
+          truck: rec.status === "Delivered" || i === 1 ? rec.truck : "",
           jobId: id,
           loadNum: i,
           pickup: Object.assign({}, rec.pickup),
@@ -1032,7 +1160,8 @@
 
   // ---------- +1 load: one tap logs a delivered load on the job ----------
   let undoTimer = null, lastAddedId = null;
-  function quickAddLoad(src, ticket){
+  function quickAddLoad(src, ticket, via){
+    via = via || (ticket && ticket.via) || "";
     const key = jobKey(src);
     if(!src.jobId){ src.jobId = src.id; src.loadNum = src.loadNum || 1; }
     const sibs = jobLoads(key);
@@ -1041,7 +1170,7 @@
 
     // ticket jobs: ask for the ticket amount first
     if(sibs.some(x => x.ticketMode) && !ticket){
-      openTicketModal(src, nextNum, unitOf(src));
+      openTicketModal(src, nextNum, unitOf(src), via);
       return;
     }
     const label = (src.customer || "job");
@@ -1049,12 +1178,15 @@
 
     // finish the next planned/open load first, if there is one
     if(pending){
-      const prev = {status: pending.status, deliveredAt: pending.deliveredAt || null, qty: pending.qty, ticketNo: pending.ticketNo};
+      const prev = {status: pending.status, deliveredAt: pending.deliveredAt || null, qty: pending.qty, ticketNo: pending.ticketNo, truck: pending.truck, via: pending.via};
       setStatus(pending, "Delivered");
+      if(curTruck()) pending.truck = curTruck();
+      pending.via = via;
+      markAuto(key, via);
       if(ticket){ if(ticket.qty) pending.qty = ticket.qty; pending.ticketNo = ticket.ticketNo || ""; }
       persist();
       render();
-      showToast("Load " + nextNum + " hauled" + amtTxt + " · " + label, null, function(){
+      showToast((via ? "Auto: " : "") + "Load " + nextNum + " hauled" + amtTxt + " · " + label, null, function(){
         Object.assign(pending, prev);
       });
       return;
@@ -1070,18 +1202,21 @@
       perLoad: src.perLoad || "",
       unit: unitOf(src), ticketMode: !!src.ticketMode,
       ticketNo: ticket ? (ticket.ticketNo || "") : "",
-      status: "Delivered", deliveredAt: now, notes: "", createdAt: now
+      status: "Delivered", deliveredAt: now, notes: "", createdAt: now,
+      truck: curTruck(), via: via,
+      autoAt: src.autoAt || "", autoRadius: src.autoRadius || 152
     };
+    markAuto(key, via);
     loads.unshift(rec);
     persist();
     render();
-    showToast("Load " + nextNum + " hauled" + amtTxt + " · " + label, rec.id);
+    showToast((via ? "Auto: " : "") + "Load " + nextNum + " hauled" + amtTxt + " · " + label, rec.id);
   }
 
   // ---------- ticket entry sheet ----------
-  let ticketSrc = null;
-  function openTicketModal(src, num, unit){
-    ticketSrc = src;
+  let ticketSrc = null, ticketVia = "";
+  function openTicketModal(src, num, unit, via){
+    ticketSrc = src; ticketVia = via || "";
     document.getElementById("ticketTitle").textContent = "Load " + num + " · " + (src.customer || "job");
     document.getElementById("t_unit").textContent = unit === "yd" ? "yards" : "tons";
     document.getElementById("t_amount").value = "";
@@ -1102,7 +1237,7 @@
     const src = ticketSrc;
     const tn = document.getElementById("t_number").value.trim();
     closeTicketModal();
-    quickAddLoad(src, {qty: amt, ticketNo: tn});
+    quickAddLoad(src, {qty: amt, ticketNo: tn, via: ticketVia});
   });
   let undoFn = null;
   function showToast(msg, addedId, revert){
@@ -1155,7 +1290,9 @@
       rows = '<div class="load-rows">' + sibs.slice().reverse().map(function(x){
         return '<div class="load-row" data-id="' + x.id + '">' +
           '<span class="n">#' + (x.loadNum || 1) + '</span>' +
-          '<span class="when">' + escapeHtml(fmtWhen(x)) + (x.ticketNo ? ' <span class="tkt">· tkt ' + escapeHtml(x.ticketNo) + '</span>' : '') + '</span>' +
+          '<span class="when">' + escapeHtml(fmtWhen(x)) + (x.ticketNo ? ' <span class="tkt">· tkt ' + escapeHtml(x.ticketNo) + '</span>' : '') +
+            (x.truck ? ' <span class="tkt">· ' + escapeHtml(truckShort(x.truck)) + '</span>' : '') +
+            (x.via ? ' <span class="tkt">· auto</span>' : '') + '</span>' +
           '<span class="q">' + escapeHtml(fmtQty(x)) + '</span>' +
           '<span class="pill ' + statusClass(x.status) + '">' + x.status + '</span>' +
           (NEXT_STATUS[x.status] ? '<button class="row-btn r-adv" title="Move to ' + NEXT_STATUS[x.status] + '">▸</button>' : '') +
@@ -1180,6 +1317,8 @@
           '<span class="mode-tag">' + (head.ticketMode ? "Ticket each load" : "Same each load") + '</span><br>' +
           (todayCount ? '<b>' + todayCount + '</b> today' : 'none today') +
           (open.length ? ' · <b>' + open.length + '</b> still open' : '') +
+          (truckSummary(delivered) ? '<br>' + escapeHtml(truckSummary(delivered)) : '') +
+          (head.autoAt ? '<br><span class="mode-tag auto-tag" style="margin-left:0">Auto-counts at ' + (head.autoAt === "pickup" ? "pickup" : "drop-off") + '</span>' : '') +
           (showTag && untagged.length && delivered.some(x => x.ticketNo)
             ? '<br><span class="untagged">' + untagged.length + ' not on a ticket yet</span>' : '') +
         '</div>' +
@@ -1309,7 +1448,7 @@
         run.end = null; job.status = "En Route";
       });
     } else {
-      const e = {id: uid(), start: now, end: null};
+      const e = {id: uid(), start: now, end: null, truck: curTruck()};
       const prevStatus = job.status;
       job.entries.push(e);
       job.status = "En Route";
@@ -1330,6 +1469,8 @@
     document.getElementById("tm_start").value = entry ? toLocalTimeInput(st) : "";
     document.getElementById("tm_end").value = entry && entry.end ? toLocalTimeInput(new Date(entry.end)) : "";
     document.getElementById("tmHint").textContent = entry && !entry.end ? "Clock is running. Leave End blank to keep it running." : "";
+    document.getElementById("tm_truck").value = entry ? (entry.truck || "") : curTruck();
+    refreshTruckOptions();
     document.getElementById("timeModalBackdrop").classList.add("open");
   }
   function closeTimeModal(){ document.getElementById("timeModalBackdrop").classList.remove("open"); timeJob = null; timeEntry = null; }
@@ -1349,11 +1490,14 @@
     if(end && end - start > 24 * 3600000){ hint.textContent = "That's over 24 hours. Check the times."; return; }
     const job = timeJob;
     job.entries = job.entries || [];
+    const tTruck = document.getElementById("tm_truck").value.trim();
+    if(tTruck) rememberTruck(tTruck);
     if(timeEntry){
       timeEntry.start = start.toISOString();
       timeEntry.end = end ? end.toISOString() : null;
+      timeEntry.truck = tTruck;
     } else {
-      job.entries.push({id: uid(), start: start.toISOString(), end: end.toISOString()});
+      job.entries.push({id: uid(), start: start.toISOString(), end: end.toISOString(), truck: tTruck});
     }
     job.status = job.entries.some(e => !e.end) ? "En Route" : "Delivered";
     persist(); closeTimeModal(); render();
@@ -1376,7 +1520,7 @@
         const d = new Date(e.start);
         return '<div class="load-row" data-eid="' + e.id + '">' +
           '<span class="when" style="flex:0 0 74px">' + d.toLocaleDateString(undefined,{weekday:"short",month:"numeric",day:"numeric"}) + '</span>' +
-          '<span class="when">' + fmtTime(e.start) + ' – ' + (e.end ? fmtTime(e.end) : 'running') + '</span>' +
+          '<span class="when">' + fmtTime(e.start) + ' – ' + (e.end ? fmtTime(e.end) : 'running') + (e.truck ? ' <span class="tkt">· ' + escapeHtml(truckShort(e.truck)) + '</span>' : '') + '</span>' +
           '<span class="q" style="width:74px">' + (e.end ? fmtHM(entryMs(e)) : '<span class="pill cancelled">On</span>') + '</span>' +
           '<button class="row-btn r-edit">Edit</button>' +
           '<button class="row-btn danger r-del">✕</button>' +
@@ -1450,6 +1594,8 @@
         '<div><span class="m-lbl">Amount</span><span class="m-val">' + escapeHtml(fmtQty(l)) + '</span></div>' +
         (l.ticketNo ? '<div><span class="m-lbl">Ticket</span><span class="m-val">' + escapeHtml(l.ticketNo) + '</span></div>' : '') +
         (l.ticketMode ? '<div><span class="m-lbl">Measured</span><span class="m-val">Ticket</span></div>' : '') +
+        (l.truck ? '<div><span class="m-lbl">Truck</span><span class="m-val">' + escapeHtml(l.truck) + '</span></div>' : '') +
+        (l.autoAt ? '<div><span class="m-lbl">Auto</span><span class="m-val">' + (l.autoAt === "pickup" ? "Pickup" : "Drop-off") + '</span></div>' : '') +
       '</div>' +
       (l.notes ? '<div class="card-notes">' + escapeHtml(l.notes) + '</div>' : '') +
       '<div class="card-actions">' +
@@ -1565,8 +1711,18 @@
     const dHint = document.getElementById("dropoffHint");
     function upd(input, hint, which){
       const parsed = parseMapLink(input.value);
+      const prev = which === "pickup" ? pickupStore : dropoffStore;
+      // renaming a GPS-pinned spot keeps the pin
+      if(!parsed.link && prev && prev.lat && !prev.link && input.value.trim()){
+        prev.address = parsed.address || "Pinned spot";
+        return;
+      }
       if(which === "pickup") pickupStore = parsed; else dropoffStore = parsed;
-      hint.textContent = parsed.link ? ("📍 Recognized map link → " + parsed.address) : "";
+      hint.textContent = parsed.link
+        ? (parsed.lat ? "📍 Map link → " + parsed.address + " (GPS point found)"
+           : "Map link saved, but it has no GPS point (short share links don't). For auto-count, tap 📍 Pin here at the spot.")
+        : "";
+      if(typeof renderAutoSeg === "function") renderAutoSeg();
     }
     pIn.addEventListener("input", function(){ upd(pIn, pHint, "pickup"); });
     pIn.addEventListener("paste", function(){ setTimeout(function(){ upd(pIn, pHint, "pickup"); }, 30); });
@@ -1606,12 +1762,14 @@
       const k = jobKey(l); if(!seenK[k]){ seenK[k] = true; order.push(k); }
     });
     let totLoads = 0, totHrs = 0, ticketSet = {};
+    const daysTrucks = {};
     const allDelivered = [];
     order.forEach(function(k){
       const sibs = jobLoads(k);
       const head = sibs[0];
-      const routeTxt = (head.pickup.address || head.dropoff.address)
-        ? (head.pickup.address || "?") + " → " + (head.dropoff.address || "?") : "";
+      const routeTxt = head.pickup.address && head.dropoff.address ? head.pickup.address + " → " + head.dropoff.address
+        : head.dropoff.address ? "To " + head.dropoff.address
+        : head.pickup.address ? "From " + head.pickup.address : "";
       if(head.billing === "hourly"){
         const es = (head.entries || []).filter(e => localDay(new Date(e.start)) === day)
           .sort((a,b) => a.start.localeCompare(b.start));
@@ -1621,7 +1779,8 @@
         L.push({k:"job", t:(head.customer || "Untitled job") + " — Hourly" + (head.material ? " · " + head.material : "")});
         if(routeTxt) L.push({k:"sub", t:routeTxt});
         es.forEach(function(e){
-          L.push({k:"item", t:fmtTime(e.start) + " – " + (e.end ? fmtTime(e.end) : "still running") + " · " + fmtHM(entryMs(e)) + (e.end ? "" : " so far")});
+          L.push({k:"item", t:fmtTime(e.start) + " – " + (e.end ? fmtTime(e.end) : "still running") + " · " + fmtHM(entryMs(e)) + (e.end ? "" : " so far") + (e.truck ? " · " + truckLbl(e.truck) : "")});
+          if(e.truck) daysTrucks[e.truck] = true;
         });
         L.push({k:"sum", t:fmtHrs(h) + " hrs"});
         if(head.notes) L.push({k:"sub", t:"Note: " + head.notes});
@@ -1654,7 +1813,15 @@
           }
         });
       }
-      if(D.length) L.push({k:"sum", t:D.length + (D.length === 1 ? " load" : " loads") + (amt(D) ? " · " + amt(D) : "")});
+      const byTruck = {}, tOrder = [];
+      D.forEach(function(x){ const t = x.truck || ""; if(!byTruck[t]){ byTruck[t] = []; tOrder.push(t); } byTruck[t].push(x); if(x.truck) daysTrucks[x.truck] = true; });
+      if(tOrder.length > 1){
+        tOrder.forEach(function(t){
+          const list = byTruck[t];
+          L.push({k:"item", t:(t ? truckLbl(t) : "No truck") + " · " + list.length + (list.length === 1 ? " load " : " loads ") + ranges(list.map(x => x.loadNum || 1)) + (amt(list) ? " · " + amt(list) : "")});
+        });
+      }
+      if(D.length) L.push({k:"sum", t:D.length + (D.length === 1 ? " load" : " loads") + (amt(D) ? " · " + amt(D) : "") + (tOrder.length === 1 && tOrder[0] ? " · " + truckLbl(tOrder[0]) : "")});
       if(O.length) L.push({k:"sub", t:O.length + " planned load" + (O.length === 1 ? "" : "s") + " not hauled"});
       if(head.notes) L.push({k:"sub", t:"Note: " + head.notes});
     });
@@ -1665,6 +1832,8 @@
     const parts = [totLoads + (totLoads === 1 ? " load" : " loads")];
     if(amt(allDelivered)) parts.push(amt(allDelivered));
     if(totHrs) parts.push(fmtHrs(totHrs) + " hrs");
+    const tk = Object.keys(daysTrucks);
+    if(tk.length) parts.push((tk.length === 1 ? "Truck " : "Trucks ") + tk.join(", "));
     const nt = Object.keys(ticketSet).length;
     if(nt) parts.push(nt + (nt === 1 ? " ticket" : " tickets"));
     L.push({k:"total", t:"DAY TOTAL: " + parts.join(" · ")});
@@ -1746,23 +1915,24 @@
     return localDay(d) + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
   }
   function csvRows(day){
-    const head = ["Date","Job / Customer","Type","Load #","Material","Amount","Unit","Ticket #","Status","Hauled at","Clock in","Clock out","Hours","Pickup","Drop-off","Notes"];
+    const head = ["Date","Job / Customer","Type","Load #","Truck","Material","Amount","Unit","Ticket #","Status","Hauled at","Clock in","Clock out","Hours","Pickup","Drop-off","Auto-counted","Notes"];
     const rows = [];
     loads.slice().sort((a,b) => a.createdAt.localeCompare(b.createdAt)).forEach(function(l){
       if(l.billing === "hourly"){
         (l.entries || []).slice().sort((a,b) => a.start.localeCompare(b.start)).forEach(function(e){
           const d = localDay(new Date(e.start));
           if(day && d !== day) return;
-          rows.push([d, l.customer, "Time", "", l.material, "", "", "", e.end ? "Complete" : "Running",
+          rows.push([d, l.customer, "Time", "", e.truck || "", l.material, "", "", "", e.end ? "Complete" : "Running",
             "", fmtStamp(e.start), fmtStamp(e.end), e.end ? fmtHrs(entriesHours([e])) : "",
-            l.pickup.address, l.dropoff.address, l.notes]);
+            l.pickup.address, l.dropoff.address, "", l.notes]);
         });
         return;
       }
       const d = dayOfLoad(l);
       if(day && d !== day) return;
-      rows.push([d, l.customer, "Load", l.loadNum || 1, l.material, l.qty, l.qty ? (unitOf(l) === "yd" ? "yd" : "tons") : "",
-        l.ticketNo, l.status, fmtStamp(l.deliveredAt), "", "", "", l.pickup.address, l.dropoff.address, l.notes]);
+      rows.push([d, l.customer, "Load", l.loadNum || 1, l.truck || "", l.material, l.qty, l.qty ? (unitOf(l) === "yd" ? "yd" : "tons") : "",
+        l.ticketNo, l.status, fmtStamp(l.deliveredAt), "", "", "", l.pickup.address, l.dropoff.address,
+        l.via === "gps" ? "GPS" : l.via === "link" ? "Link" : "", l.notes]);
     });
     rows.sort((a,b) => String(a[0]).localeCompare(String(b[0])));
     return [head].concat(rows);
@@ -2060,10 +2230,293 @@
     render();
   });
 
+  // ================= TRUCKS =================
+  function curTruck(){ return getSettings().truck || ""; }
+  function truckList(){ return getSettings().trucks || []; }
+  function truckLbl(t){ return /^\s*\d+\s*$/.test(t) ? "Truck " + t.trim() : t; }
+  function truckShort(t){ return /^\s*\d+\s*$/.test(t) ? "Trk " + t.trim() : t; }
+  function rememberTruck(t){
+    t = (t || "").trim(); if(!t) return;
+    const list = truckList();
+    if(list.indexOf(t) < 0){ list.push(t); saveSettings({trucks: list}); }
+  }
+  function truckSummary(list){
+    const c = {}, order = [];
+    list.forEach(x => { if(!x.truck) return; if(!c[x.truck]){ c[x.truck] = 0; order.push(x.truck); } c[x.truck]++; });
+    if(!order.length) return "";
+    return (order.length === 1 ? truckLbl(order[0]) : "Trucks " + order.map(t => t + " (" + c[t] + ")").join(", "));
+  }
+  function refreshTruckOptions(){
+    document.getElementById("truckOptions").innerHTML = truckList().map(t => '<option value="' + escapeHtml(t) + '">').join("");
+  }
+  function renderTruckChip(){
+    const t = curTruck();
+    document.getElementById("truckName").textContent = t ? truckLbl(t) : "Pick truck";
+  }
+  function setTruck(t){
+    if(t) rememberTruck(t);
+    saveSettings({truck: t || ""});
+    renderTruckChip();
+  }
+  function renderTruckList(){
+    const cur = curTruck();
+    const list = truckList();
+    document.getElementById("truckList").innerHTML =
+      list.map(t => '<div class="truck-opt"><button class="pick' + (t === cur ? ' on' : '') + '" data-t="' + escapeHtml(t) + '">' + escapeHtml(truckLbl(t)) + '</button>' +
+        '<button class="rm" data-rm="' + escapeHtml(t) + '" title="Remove from list">✕</button></div>').join("") +
+      '<div class="truck-opt"><button class="pick' + (!cur ? ' on' : '') + '" data-t="">No truck</button></div>';
+  }
+  document.getElementById("truckBtn").addEventListener("click", function(){
+    renderTruckList();
+    document.getElementById("newTruck").value = "";
+    document.getElementById("truckModalBackdrop").classList.add("open");
+  });
+  function closeTruckModal(){ document.getElementById("truckModalBackdrop").classList.remove("open"); }
+  document.getElementById("closeTruckBtn").addEventListener("click", closeTruckModal);
+  document.getElementById("truckModalBackdrop").addEventListener("click", function(e){ if(e.target === this) closeTruckModal(); });
+  document.getElementById("truckList").addEventListener("click", function(e){
+    const rm = e.target.closest("[data-rm]");
+    if(rm){
+      const t = rm.dataset.rm;
+      saveSettings({trucks: truckList().filter(x => x !== t)});
+      if(curTruck() === t) saveSettings({truck: ""});
+      renderTruckList(); renderTruckChip();
+      return;
+    }
+    const b = e.target.closest("[data-t]");
+    if(!b) return;
+    setTruck(b.dataset.t);
+    closeTruckModal();
+    flash(b.dataset.t ? "Now logging in " + truckLbl(b.dataset.t) : "No truck selected");
+  });
+  function addTruckFromInput(){
+    const t = document.getElementById("newTruck").value.trim();
+    if(!t) return;
+    setTruck(t);
+    closeTruckModal();
+    flash("Now logging in " + truckLbl(t));
+  }
+  document.getElementById("addTruckBtn").addEventListener("click", addTruckFromInput);
+  document.getElementById("newTruck").addEventListener("keydown", function(e){ if(e.key === "Enter") addTruckFromInput(); });
+
+  // ================= PINS =================
+  function haversine(a, b){
+    const R = 6371000, toR = Math.PI / 180;
+    const dLat = (b.lat - a.lat) * toR, dLng = (b.lng - a.lng) * toR;
+    const h = Math.sin(dLat/2) ** 2 + Math.cos(a.lat * toR) * Math.cos(b.lat * toR) * Math.sin(dLng/2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  function fmtDist(m){
+    const ft = m * 3.28084;
+    return ft < 1000 ? Math.round(ft / 10) * 10 + " ft" : (m / 1609.34).toFixed(m < 16093 ? 1 : 0) + " mi";
+  }
+  function pinHere(which){
+    const hint = document.getElementById(which === "pickup" ? "pickupHint" : "dropoffHint");
+    const input = document.getElementById(which === "pickup" ? "f_pickupInput" : "f_dropoffInput");
+    if(!navigator.geolocation){ hint.textContent = "This device can't share its location."; return; }
+    hint.textContent = "Getting your location…";
+    navigator.geolocation.getCurrentPosition(function(pos){
+      const c = pos.coords;
+      const typed = input.value.trim();
+      const isLink = /^https?:\/\//i.test(typed);
+      const address = (!typed || isLink) ? "Pinned spot" : typed;
+      const store = {address: address, link: "", lat: c.latitude, lng: c.longitude};
+      if(which === "pickup") pickupStore = store; else dropoffStore = store;
+      if(!typed || isLink) input.value = address;
+      hint.textContent = "📍 Pinned here (±" + fmtDist(c.accuracy) + "). Rename it if you like; the pin stays.";
+      renderAutoSeg();
+    }, function(err){
+      hint.textContent = err.code === 1 ? "Location is blocked. Allow location for this app in your browser settings."
+        : "Couldn't get a GPS fix. Try again outside or near a window.";
+    }, {enableHighAccuracy: true, timeout: 20000, maximumAge: 0});
+  }
+  document.getElementById("pinPickup").addEventListener("click", function(){ pinHere("pickup"); });
+  document.getElementById("pinDropoff").addEventListener("click", function(){ pinHere("dropoff"); });
+  // ================= AUTO-COUNT SETTINGS (job form) =================
+  let currentAuto = "";
+  function linkFor(action, key){
+    return location.origin + location.pathname.replace(/index\.html$/, "") + "?" + action + "=" + encodeURIComponent(key);
+  }
+  function formJobKey(){
+    const eid = document.getElementById("editId").value;
+    if(eid){ const l = loads.find(x => x.id === eid); return l ? jobKey(l) : eid; }
+    return newJobId;
+  }
+  function renderAutoSeg(){
+    const hourly = currentMode === "hourly";
+    document.querySelectorAll("#autoSeg button").forEach(b => b.classList.toggle("on", b.dataset.auto === currentAuto));
+    document.getElementById("autoSeg").style.display = hourly ? "none" : "";
+    document.getElementById("f_radius").style.display = (hourly || !currentAuto) ? "none" : "";
+    const pin = currentAuto === "pickup" ? pickupStore : dropoffStore;
+    const hint = document.getElementById("autoHint");
+    const btn = document.getElementById("copyAutoLink");
+    if(hourly){
+      hint.textContent = "For hourly jobs, MacroDroid can clock you in when you arrive and out when you leave. Copy the two links below.";
+      btn.textContent = "Copy clock-in + clock-out links";
+    } else if(!currentAuto){
+      hint.textContent = "Off: loads are only added when you tap +1 Load (or open this job's auto-add link).";
+      btn.textContent = "Copy auto-add link";
+    } else {
+      hint.textContent = (pin && pin.lat
+        ? "In Auto mode, a load is counted each time you pull into the " + (currentAuto === "pickup" ? "pickup" : "drop-off") + " pin. You have to leave the area before it counts again."
+        : "This needs a GPS pin. Tap 📍 Pin here when you're at the " + (currentAuto === "pickup" ? "pickup" : "drop-off") + ", or paste a full Google Maps link.") +
+        " The app has to be open on screen for this; use the link with MacroDroid to count in the background.";
+      btn.textContent = "Copy auto-add link";
+    }
+  }
+  document.getElementById("autoSeg").addEventListener("click", function(e){
+    const b = e.target.closest("button"); if(!b) return;
+    currentAuto = b.dataset.auto; renderAutoSeg();
+  });
+  document.getElementById("copyAutoLink").addEventListener("click", function(){
+    const key = formJobKey();
+    const text = currentMode === "hourly"
+      ? "Clock in:  " + linkFor("start", key) + "\nClock out: " + linkFor("stop", key)
+      : linkFor("add", key);
+    const out = document.getElementById("linkOut");
+    out.textContent = text; out.style.display = "block";
+    const saved = !!document.getElementById("editId").value;
+    copyText(text).then(ok => flash(ok ? (saved ? "Link copied. Paste it into MacroDroid." : "Link copied. Save this job before using it.") : "Copy failed. Long-press the link to copy it."));
+  });
+
+  // ================= AUTO MODE (GPS, app on screen) =================
+  const COOLDOWN = 3 * 60 * 1000;
+  function lastAutoMap(){ return getSettings().lastAuto || {}; }
+  function markAuto(key, via){
+    if(!via) return;
+    const m = lastAutoMap(); m[key] = Date.now(); saveSettings({lastAuto: m});
+  }
+  function inCooldown(key){
+    const t = lastAutoMap()[key];
+    return t && (Date.now() - t) < COOLDOWN ? Math.ceil((COOLDOWN - (Date.now() - t)) / 60000) : 0;
+  }
+  let watchId = null, wakeLock = null, zones = {}, lastFix = null;
+  function autoJobs(){
+    const seen = {}, out = [];
+    loads.forEach(function(l){
+      const k = jobKey(l);
+      if(seen[k] || l.billing === "hourly") return;
+      seen[k] = true;
+      const head = jobLoads(k)[0];
+      if(!head.autoAt) return;
+      const pin = head.autoAt === "pickup" ? head.pickup : head.dropoff;
+      out.push({key: k, head: head, pin: pin && pin.lat ? {lat: pin.lat, lng: pin.lng} : null, r: head.autoRadius || 152});
+    });
+    return out;
+  }
+  function vibrate(){ try{ navigator.vibrate && navigator.vibrate([250, 120, 250]); }catch(e){} }
+  function autoTrigger(job, via){
+    const wait = inCooldown(job.key);
+    if(wait){ flash("Already counted " + (job.head.customer || "this job") + " in the last 3 min. Skipped."); return; }
+    vibrate();
+    const sibs = jobLoads(job.key);
+    const latest = sibs[sibs.length - 1];
+    if(sibs.some(x => x.ticketMode)){
+      markAuto(job.key, via);
+      quickAddLoad(latest, null, via);   // opens the ticket sheet
+      return;
+    }
+    quickAddLoad(latest, null, via);
+  }
+  function onFix(pos){
+    const c = pos.coords;
+    lastFix = {lat: c.latitude, lng: c.longitude, acc: c.accuracy, at: Date.now()};
+    const jobs = autoJobs();
+    const banner = document.getElementById("autoBanner");
+    if(c.accuracy > 150){
+      banner.className = "auto-banner show warn";
+      banner.innerHTML = "<b>Auto on</b> · weak GPS (±" + fmtDist(c.accuracy) + "). Waiting for a better signal.";
+      return;
+    }
+    const near = [];
+    jobs.forEach(function(j){
+      if(!j.pin) return;
+      const d = haversine(lastFix, j.pin);
+      const z = zones[j.key] || (zones[j.key] = {inside: null, hits: 0});
+      if(z.inside === null){ z.inside = d < j.r; }               // first fix: learn where we are, don't count
+      else if(!z.inside && d < j.r){
+        z.hits++;
+        if(z.hits >= 2){ z.inside = true; z.hits = 0; autoTrigger(j, "gps"); }
+      } else if(z.inside && d > j.r + 100){ z.inside = false; z.hits = 0; }
+      else if(!z.inside){ z.hits = 0; }
+      near.push({j: j, d: d, inside: z.inside});
+    });
+    near.sort((a,b) => a.d - b.d);
+    const unpinned = jobs.filter(j => !j.pin).length;
+    banner.className = "auto-banner show" + (jobs.length && near.length ? "" : " warn");
+    banner.innerHTML = "<b>Auto on</b> · GPS ±" + fmtDist(c.accuracy) + " · keep this screen open" +
+      (near.length ? "<br>" + near.slice(0, 3).map(n => (n.inside ? "✓ At " : "") + "<b>" + escapeHtml(n.j.head.customer || "Job") + "</b> " +
+        (n.inside ? "(leave to count again)" : fmtDist(n.d) + " away")).join("<br>") : "") +
+      (!jobs.length ? "<br>No jobs are set to auto-count. Edit a job → Auto-count → At drop-off." : "") +
+      (unpinned ? "<br>" + unpinned + " auto job" + (unpinned === 1 ? " has" : "s have") + " no GPS pin yet." : "");
+  }
+  function onFixErr(err){
+    const banner = document.getElementById("autoBanner");
+    banner.className = "auto-banner show warn";
+    banner.innerHTML = err.code === 1
+      ? "<b>Auto can't run:</b> location is blocked. Allow location for this app, then turn Auto on again."
+      : "<b>Auto on</b> · no GPS fix yet…";
+    if(err.code === 1) stopAuto(true);
+  }
+  async function keepAwake(){
+    try{ if("wakeLock" in navigator && !wakeLock && !document.hidden){ wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } }catch(e){}
+  }
+  function startAuto(){
+    if(!navigator.geolocation){ flash("This device can't share its location."); return; }
+    zones = {};
+    watchId = navigator.geolocation.watchPosition(onFix, onFixErr, {enableHighAccuracy: true, maximumAge: 3000, timeout: 30000});
+    keepAwake();
+    saveSettings({autoOn: true});
+    renderAutoBtn();
+    const b = document.getElementById("autoBanner");
+    b.className = "auto-banner show"; b.innerHTML = "<b>Auto on</b> · getting GPS…";
+  }
+  function stopAuto(keepBanner){
+    if(watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = null; zones = {};
+    try{ wakeLock && wakeLock.release(); }catch(e){} wakeLock = null;
+    saveSettings({autoOn: false});
+    renderAutoBtn();
+    if(!keepBanner) document.getElementById("autoBanner").className = "auto-banner";
+  }
+  function renderAutoBtn(){
+    const on = watchId !== null;
+    const b = document.getElementById("autoBtn");
+    b.textContent = on ? "Auto · On" : "Auto · Off";
+    b.classList.toggle("on", on);
+  }
+  document.getElementById("autoBtn").addEventListener("click", function(){ watchId !== null ? stopAuto() : startAuto(); });
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden && watchId !== null) keepAwake(); });
+
+  // ================= AUTO-ADD LINKS (MacroDroid etc.) =================
+  function handleLink(){
+    const q = new URLSearchParams(location.search);
+    const action = ["add", "start", "stop", "clock"].find(a => q.has(a));
+    if(q.has("truck")) setTruck(q.get("truck"));
+    if(!action) return;
+    const key = q.get(action);
+    history.replaceState(null, "", location.pathname);       // never re-run on reload
+    const sibs = jobLoads(key);
+    if(!sibs.length){ flash("That link's job isn't on this device (deleted, or made on another device)."); return; }
+    const head = sibs[0];
+    if(head.billing === "hourly"){
+      const running = (head.entries || []).some(e => !e.end);
+      if((action === "start" || action === "add") && running){ flash("Already clocked in on " + (head.customer || "this job")); return; }
+      if(action === "stop" && !running){ flash("Not clocked in on " + (head.customer || "this job")); return; }
+      toggleClock(head);
+      return;
+    }
+    autoTrigger({key: key, head: head}, "link");
+  }
+
   // ---------- init ----------
   load();
   render();
   renderBackupStatus();
+  renderTruckChip();
+  refreshTruckOptions();
+  handleLink();
+  if(getSettings().autoOn) startAuto();
 
   // ---------- installed-app support ----------
   // ask the browser not to evict our saved loads under storage pressure
@@ -2085,7 +2538,7 @@
       }).catch(function(){});
     });
   }
-  window.LOADSHEET_VERSION = "2026.10.20-1";
+  window.LOADSHEET_VERSION = "2026.10.20-2";
 })();
 </script>
 </body>

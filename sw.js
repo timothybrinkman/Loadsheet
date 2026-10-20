@@ -1,5 +1,5 @@
 // Load Sheet offline worker. Bump VERSION on every release.
-const VERSION = "2026.10.20-1";
+const VERSION = "2026.10.20-2";
 const CACHE = "loadsheet-" + VERSION;
 const SHELL = ["./", "index.html", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png"];
