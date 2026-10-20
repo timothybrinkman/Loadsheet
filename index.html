@@ -1,0 +1,2092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Load Sheet">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1c1b1a">
+<meta name="description" content="Track loads, tickets and hours from the truck. Works offline.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Load Sheet</title>
+<style>
+  :root{
+    --asphalt:#1c1b1a;
+    --asphalt-2:#26241f;
+    --paper:#f4efe6;
+    --paper-dim:#e7e0d1;
+    --orange:#ff6a13;
+    --orange-dark:#c94f0a;
+    --ink:#231f1a;
+    --muted:#6b5b4f;
+    --line:#d8cfbc;
+    --scheduled:#5c7080;
+    --enroute:#d9a441;
+    --delivered:#3c8c5d;
+    --cancelled:#c1443c;
+    --radius:3px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--asphalt);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.035) 1px, transparent 0);
+    background-size:14px 14px;
+    color:var(--paper);
+    font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:calc(70px + env(safe-area-inset-bottom));
+  }
+  .display{
+    font-family:"Arial Black","Helvetica Neue",Arial,sans-serif;
+    font-weight:900;
+    letter-spacing:0.02em;
+    text-transform:uppercase;
+  }
+  .mono{
+    font-family:"SF Mono","Menlo","Courier New",monospace;
+  }
+
+  /* ---------- Top bar ---------- */
+  header.topbar{
+    position:sticky; top:0; z-index:30;
+    background:var(--asphalt);
+    border-bottom:3px solid var(--orange);
+    padding:calc(14px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 12px calc(16px + env(safe-area-inset-left));
+  }
+  .topbar-row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .brand{display:flex; align-items:baseline; gap:8px;}
+  .brand .display{font-size:22px; color:var(--paper);}
+  .brand .sub{font-size:11px; color:var(--orange); letter-spacing:0.14em; text-transform:uppercase; font-weight:700;}
+  .topbar-actions{display:flex; gap:8px;}
+  .icon-btn{
+    background:var(--asphalt-2); border:1px solid #3a3733; color:var(--paper);
+    border-radius:var(--radius); padding:10px 12px; font-size:13px; font-weight:700;
+    display:flex; align-items:center; gap:6px; white-space:nowrap;
+  }
+  .btn-primary{
+    background:var(--orange); border:1px solid var(--orange-dark); color:#1c1200;
+    border-radius:var(--radius); padding:10px 14px; font-weight:800; font-size:13px;
+    text-transform:uppercase; letter-spacing:0.04em;
+  }
+  .btn-primary:active, .icon-btn:active{ transform:translateY(1px); }
+
+  /* stats strip */
+  .stats{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px;
+  }
+  .stat{
+    background:var(--asphalt-2); border:1px solid #3a3733; border-radius:var(--radius);
+    padding:8px 8px; text-align:center;
+  }
+  .stat .num{font-size:18px; font-weight:800; font-family:"SF Mono",monospace;}
+  .stat .lbl{font-size:9px; text-transform:uppercase; letter-spacing:0.08em; color:#9c8f7c; margin-top:2px;}
+  .stat.scheduled .num{color:var(--scheduled);}
+  .stat.enroute .num{color:var(--enroute);}
+  .stat.delivered .num{color:var(--delivered);}
+  .stat.cancelled .num{color:var(--cancelled);}
+  .stat .num.long{font-size:14px; line-height:22px; white-space:nowrap;}
+
+  /* filter chips + search */
+  .filters{display:flex; gap:6px; margin-top:12px; overflow-x:auto; padding-bottom:2px;}
+  .chip{
+    flex:0 0 auto; background:transparent; border:1px solid #4a463f; color:#c9bfae;
+    padding:7px 12px; border-radius:20px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
+  }
+  .chip.active{background:var(--paper); color:var(--ink); border-color:var(--paper);}
+  .searchbar{margin-top:10px;}
+  .searchbar input{
+    width:100%; background:var(--asphalt-2); border:1px solid #3a3733; color:var(--paper);
+    padding:11px 12px; border-radius:var(--radius); font-size:14px;
+  }
+  .searchbar input::placeholder{color:#77705f;}
+
+  /* ---------- Load list ---------- */
+  main{padding:16px;}
+  .empty-state{
+    text-align:center; padding:60px 20px; color:#8a8070;
+  }
+  .empty-state .display{font-size:18px; color:#c9bfae; margin-bottom:6px;}
+  .empty-state p{font-size:13px; line-height:1.5; max-width:280px; margin:0 auto;}
+
+  .load-card{
+    position:relative;
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:var(--radius);
+    margin-bottom:14px;
+    padding:14px 14px 14px 26px;
+    box-shadow:0 3px 0 rgba(0,0,0,0.35);
+    overflow:hidden;
+  }
+  .load-card::before{
+    content:"";
+    position:absolute; left:0; top:0; bottom:0; width:14px;
+    background-image: radial-gradient(circle 2.5px, var(--asphalt) 2.4px, transparent 2.5px);
+    background-size: 14px 14px;
+    background-position: 6px 4px;
+    background-color: var(--paper-dim);
+    border-right:1px dashed #b9ac93;
+  }
+  .stamp{
+    position:absolute; top:10px; right:-6px;
+    transform:rotate(6deg);
+    border:2px solid; border-radius:4px;
+    padding:3px 10px 3px 8px;
+    font-size:10px; font-weight:900; letter-spacing:0.1em; text-transform:uppercase;
+    background:rgba(255,255,255,0.5);
+  }
+  .stamp.scheduled{color:var(--scheduled); border-color:var(--scheduled);}
+  .stamp.enroute{color:var(--enroute); border-color:var(--enroute);}
+  .stamp.delivered{color:var(--delivered); border-color:var(--delivered);}
+  .stamp.cancelled{color:var(--cancelled); border-color:var(--cancelled);}
+
+  .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px; padding-right:70px;}
+  .card-customer{font-size:16px; font-weight:800;}
+  .card-date{font-size:11px; color:var(--muted); font-family:"SF Mono",monospace; margin-top:2px;}
+
+  .route{margin:10px 0; font-size:13px; line-height:1.5;}
+  .route .leg{display:flex; gap:8px; align-items:flex-start; margin-bottom:4px;}
+  .route .dot{width:8px; height:8px; border-radius:50%; margin-top:5px; flex:0 0 auto;}
+  .route .dot.pickup{background:var(--orange-dark);}
+  .route .dot.dropoff{background:var(--ink);}
+  .route a{color:var(--ink); text-decoration:underline; text-decoration-color:#c9bfae;}
+
+  .card-meta{display:flex; gap:14px; margin-top:10px; padding-top:10px; border-top:1px dashed #c9bfae; font-size:12px;}
+  .card-meta .m-lbl{color:var(--muted); text-transform:uppercase; font-size:9px; letter-spacing:0.06em; display:block;}
+  .card-meta .m-val{font-weight:700; font-family:"SF Mono",monospace;}
+  .card-notes{margin-top:8px; font-size:12px; color:var(--muted); font-style:italic;}
+
+  .card-actions{display:flex; gap:8px; margin-top:12px;}
+  .card-actions button{
+    flex:1; padding:9px; border-radius:var(--radius); font-size:12px; font-weight:700; text-transform:uppercase;
+    border:1px solid var(--ink); background:transparent; color:var(--ink);
+  }
+  .card-actions button.danger{border-color:var(--cancelled); color:var(--cancelled);}
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:50;
+    display:none; align-items:flex-end;
+    z-index:70;
+  }
+  .modal-backdrop.open{display:flex;}
+  .modal{
+    background:var(--asphalt); width:100%; max-height:92vh; overflow-y:auto;
+    border-radius:16px 16px 0 0; padding:18px 16px 30px;
+    border-top:3px solid var(--orange);
+  }
+  .modal-handle{width:40px; height:4px; background:#4a463f; border-radius:2px; margin:0 auto 14px;}
+  .modal h2{font-size:16px; margin:0 0 14px; text-transform:uppercase; letter-spacing:0.04em;}
+  .field{margin-bottom:12px;}
+  .field label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#9c8f7c; margin-bottom:5px; font-weight:700;}
+  .field input, .field select, .field textarea{
+    width:100%; background:var(--asphalt-2); border:1px solid #3a3733; color:var(--paper);
+    padding:11px 12px; border-radius:var(--radius); font-size:15px;
+  }
+  .field textarea{min-height:56px; resize:vertical; font-family:inherit;}
+  .field-row{display:flex; gap:10px;}
+  .field-row .field{flex:1;}
+  .status-select{display:flex; gap:6px; flex-wrap:wrap;}
+  .status-opt{
+    flex:1 1 auto; text-align:center; padding:9px 6px; border-radius:var(--radius); font-size:11px; font-weight:800;
+    text-transform:uppercase; border:1px solid #4a463f; color:#c9bfae;
+  }
+  .status-opt.sel-scheduled.on{background:var(--scheduled); border-color:var(--scheduled); color:#fff;}
+  .status-opt.sel-enroute.on{background:var(--enroute); border-color:var(--enroute); color:#1c1200;}
+  .status-opt.sel-delivered.on{background:var(--delivered); border-color:var(--delivered); color:#fff;}
+  .status-opt.sel-cancelled.on{background:var(--cancelled); border-color:var(--cancelled); color:#fff;}
+
+  .map-hint{font-size:11px; color:#77705f; margin-top:4px;}
+  .modal-buttons{display:flex; gap:10px; margin-top:18px;}
+  .modal-buttons button{flex:1; padding:13px; border-radius:var(--radius); font-weight:800; text-transform:uppercase; font-size:13px;}
+  .btn-cancel{background:transparent; border:1px solid #4a463f; color:#c9bfae;}
+  .btn-save{background:var(--orange); border:1px solid var(--orange-dark); color:#1c1200;}
+
+  /* import modal tabs */
+  .tabs{display:flex; gap:6px; margin-bottom:14px;}
+  .tab{flex:1; background:transparent; padding:9px; text-align:center; border-radius:var(--radius); font-size:12px; font-weight:800; text-transform:uppercase; border:1px solid #4a463f; color:#c9bfae;}
+  .tab.on{background:var(--paper); color:var(--ink); border-color:var(--paper);}
+  .tabpane{display:none;}
+  .tabpane.on{display:block;}
+  .import-note{font-size:11.5px; color:#9c8f7c; line-height:1.5; margin-bottom:10px;}
+  .import-note code{background:var(--asphalt-2); padding:1px 5px; border-radius:3px; color:var(--orange);}
+  .file-drop{
+    border:2px dashed #4a463f; border-radius:var(--radius); padding:24px 12px; text-align:center; color:#9c8f7c; font-size:13px;
+  }
+  .file-drop input{display:none;}
+  .preview-table{width:100%; border-collapse:collapse; font-size:11.5px; margin-top:12px;}
+  .preview-table th{background:var(--asphalt-2); color:#9c8f7c; text-align:left; padding:6px 6px; text-transform:uppercase; font-size:9.5px; letter-spacing:0.04em;}
+  .preview-table td{padding:6px 6px; border-bottom:1px solid #3a3733;}
+  .preview-table td[contenteditable]{outline:none;}
+  .preview-table td[contenteditable]:focus{background:var(--asphalt-2);}
+  .preview-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  .preview-flag{color:var(--enroute); font-size:10px;}
+  .import-count{font-size:12px; color:#c9bfae; margin-top:10px;}
+
+  .stepper{display:flex; gap:8px; align-items:stretch;}
+  .stepper button{width:60px; background:var(--asphalt-2); border:1px solid #4a463f; color:var(--paper); border-radius:var(--radius); font-size:26px; font-weight:800;}
+  .stepper input{flex:1; min-width:0; text-align:center; font-size:20px; font-weight:800; font-family:"SF Mono",monospace;}
+  .job-badge{display:inline-block; margin-top:6px; padding:3px 8px; background:var(--ink); color:var(--paper); border-radius:2px; font-size:10px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; font-family:"SF Mono",monospace;}
+  .card-actions button.advance{background:var(--orange); border-color:var(--orange-dark); color:#1c1200; font-weight:900;}
+  .job-summary{background:var(--asphalt-2); border:1px solid #3a3733; border-radius:var(--radius); padding:10px 12px; font-size:13px; line-height:1.5; margin-bottom:14px; color:#c9bfae;}
+  .job-summary strong{color:var(--paper);}
+  .tally{display:flex; align-items:flex-end; gap:14px; margin:12px 0 4px; padding-top:10px; border-top:1px dashed #c9bfae;}
+  .tally .big{font-size:52px; line-height:0.9; font-weight:900; font-family:"SF Mono",Menlo,monospace; letter-spacing:-0.02em;}
+  .tally .big-lbl{font-size:10px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+  .tally .sub{font-size:13px; line-height:1.45; color:var(--muted); padding-bottom:3px;}
+  .tally .sub b{color:var(--ink); font-family:"SF Mono",Menlo,monospace;}
+  .plus-one{
+    display:block; width:100%; margin-top:12px; padding:18px 10px;
+    background:var(--orange); border:2px solid var(--orange-dark); color:#1c1200;
+    border-radius:var(--radius); font-size:22px; font-weight:900; letter-spacing:0.06em; text-transform:uppercase;
+    box-shadow:0 4px 0 var(--orange-dark);
+  }
+  .plus-one:active{transform:translateY(3px); box-shadow:0 1px 0 var(--orange-dark);}
+  .card-actions button.plus-one{background:var(--orange); border:2px solid var(--orange-dark); color:#1c1200; font-weight:900;}
+  .plus-one.small{padding:11px 8px; font-size:14px; margin-top:0; box-shadow:0 3px 0 var(--orange-dark);}
+  .load-rows{margin-top:10px; border-top:1px solid #c9bfae;}
+  .load-row{display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--paper-dim); font-size:13px;}
+  .load-row .n{width:34px; font-weight:900; font-family:"SF Mono",Menlo,monospace;}
+  .load-row .when{flex:1; color:var(--muted); font-family:"SF Mono",Menlo,monospace; font-size:12px;}
+  .load-row .q{width:60px; text-align:right; font-weight:700; font-family:"SF Mono",Menlo,monospace;}
+  .pill{font-size:9.5px; font-weight:900; text-transform:uppercase; letter-spacing:0.06em; padding:3px 6px; border-radius:2px; color:#fff; white-space:nowrap;}
+  .pill.scheduled{background:var(--scheduled);} .pill.enroute{background:var(--enroute); color:#1c1200;}
+  .pill.delivered{background:var(--delivered);} .pill.cancelled{background:var(--cancelled);}
+  .row-btn{border:1px solid var(--ink); background:transparent; color:var(--ink); border-radius:var(--radius); padding:6px 9px; font-size:12px; font-weight:800;}
+  .row-btn.danger{border-color:var(--cancelled); color:var(--cancelled);}
+  .toast{
+    position:fixed; left:50%; bottom:22px; transform:translate(-50%, 120px); z-index:60;
+    background:var(--paper); color:var(--ink); border-left:6px solid var(--delivered);
+    padding:12px 12px 12px 16px; border-radius:var(--radius); display:flex; align-items:center; gap:16px;
+    box-shadow:0 6px 24px rgba(0,0,0,0.5); font-weight:800; font-size:15px; max-width:calc(100% - 32px);
+    transition:transform 0.2s ease;
+  }
+  .toast.show{transform:translate(-50%, 0);}
+  .toast button{background:var(--ink); color:var(--paper); border:0; border-radius:var(--radius); padding:9px 14px; font-weight:900; text-transform:uppercase; font-size:12px;}
+  .seg{display:flex; border:1px solid #4a463f; border-radius:var(--radius); overflow:hidden;}
+  .seg button{flex:1; background:transparent; border:0; color:#c9bfae; padding:10px 6px; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.03em;}
+  .seg button + button{border-left:1px solid #4a463f;}
+  .seg button.on{background:var(--paper); color:var(--ink);}
+  .amount-wrap{display:flex; gap:8px;}
+  .amount-wrap input{flex:1; min-width:0;}
+  .amount-wrap .seg{flex:0 0 132px;}
+  .field .ticket-amount{width:100%; background:var(--asphalt-2); border:2px solid var(--orange); color:var(--paper); border-radius:var(--radius); padding:14px; font-size:44px; font-weight:900; text-align:center; font-family:"SF Mono",Menlo,monospace;}
+  .ticket-unit{text-align:center; color:#9c8f7c; font-size:12px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; margin-top:6px;}
+  .mode-tag{display:inline-block; margin-left:6px; padding:2px 6px; border:1px solid var(--muted); color:var(--muted); border-radius:2px; font-size:9.5px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; vertical-align:middle;}
+  .load-row .tkt{color:var(--muted); font-size:11px;}
+  .clock-btn{
+    display:block; width:100%; margin-top:12px; padding:18px 10px;
+    border-radius:var(--radius); font-size:22px; font-weight:900; letter-spacing:0.06em; text-transform:uppercase;
+    background:var(--delivered); border:2px solid #2b6845; color:#fff; box-shadow:0 4px 0 #2b6845;
+  }
+  .clock-btn.running{background:var(--cancelled); border-color:#8f2f29; box-shadow:0 4px 0 #8f2f29;}
+  .clock-btn:active{transform:translateY(3px); box-shadow:none;}
+  .clock-btn .live{font-family:"SF Mono",Menlo,monospace; letter-spacing:0;}
+  .stamp.clock{color:var(--cancelled); border-color:var(--cancelled); animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{50%{opacity:0.45;}}
+  @media (prefers-reduced-motion: reduce){ .stamp.clock{animation:none;} }
+  .untagged{color:var(--orange-dark); font-weight:800;}
+  .fab-spacer{height:10px;}
+  ::selection{background:var(--orange); color:#1c1200;}
+
+  /* ---------- report ---------- */
+  .report-paper{
+    background:var(--paper); color:var(--ink); border-radius:var(--radius);
+    padding:16px 16px 18px; margin:4px 0 14px; font-size:13.5px; line-height:1.5;
+    max-height:46vh; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  }
+  .rp-title{font-family:"Arial Black","Helvetica Neue",Arial,sans-serif; font-weight:900; text-transform:uppercase; font-size:17px; letter-spacing:0.02em;}
+  .rp-meta{color:var(--muted); font-size:12px; font-family:"SF Mono",Menlo,monospace; margin-bottom:6px;}
+  .rp-job{margin-top:12px; padding-top:10px; border-top:1px dashed #b9ac93; font-weight:900; text-transform:uppercase; font-size:13px; letter-spacing:0.03em;}
+  .rp-sub{color:var(--muted); font-size:12px;}
+  .rp-item{font-family:"SF Mono",Menlo,monospace; font-size:12.5px; padding-left:12px;}
+  .rp-sum{font-weight:800; padding-left:12px;}
+  .rp-total{margin-top:14px; padding-top:10px; border-top:2px solid var(--ink); font-weight:900; font-family:"SF Mono",Menlo,monospace;}
+  .rp-empty{color:var(--muted); padding:20px 0; text-align:center;}
+  .btn-row{display:flex; gap:8px; margin-top:8px;}
+  .btn-row button{flex:1; padding:12px 8px; border-radius:var(--radius); font-weight:800; text-transform:uppercase; font-size:12px; letter-spacing:0.03em;
+    background:var(--asphalt-2); border:1px solid #4a463f; color:var(--paper);}
+  .btn-row button.go{background:var(--orange); border-color:var(--orange-dark); color:#1c1200;}
+  .data-block{background:var(--asphalt-2); border:1px solid #3a3733; border-radius:var(--radius); padding:12px; margin-bottom:12px;}
+  .data-block h3{margin:0 0 4px; font-size:13px; text-transform:uppercase; letter-spacing:0.05em;}
+  .data-block p{margin:0 0 8px; font-size:12px; color:#9c8f7c; line-height:1.45;}
+  .backup-status{font-weight:800;}
+  .backup-status.stale{color:var(--orange);}
+  .icon-btn .dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--orange); margin-left:4px; vertical-align:middle;}
+  #printArea{display:none;}
+  @media print{
+    body.print-report{background:#fff !important; padding:0 !important;}
+    body.print-report > *:not(#printArea){display:none !important;}
+    body.print-report #printArea{display:block !important;}
+    body.print-report .report-paper{max-height:none; overflow:visible; background:#fff; padding:0; font-size:12pt;}
+  }
+
+  @media (prefers-reduced-motion: no-preference){
+    .load-card, .modal-backdrop{ transition:opacity 0.15s ease; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-row">
+    <div class="brand">
+      <span class="display">Load&nbsp;Sheet</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="reportBtn">Report</button>
+      <button class="icon-btn" id="importBtn">Data</button>
+      <button class="btn-primary" id="newLoadBtn">+ New</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat scheduled"><div class="num" id="statScheduled">0</div><div class="lbl">Scheduled</div></div>
+    <div class="stat enroute"><div class="num" id="statEnroute">0</div><div class="lbl">En Route</div></div>
+    <div class="stat delivered"><div class="num" id="statDelivered">0</div><div class="lbl">Delivered</div></div>
+    <div class="stat delivered"><div class="num" id="statTons">0</div><div class="lbl">Hauled</div></div>
+  </div>
+
+  <div class="filters" id="filterChips">
+    <button class="chip active" data-filter="all">All</button>
+    <button class="chip" data-filter="Scheduled">Scheduled</button>
+    <button class="chip" data-filter="En Route">En Route</button>
+    <button class="chip" data-filter="Delivered">Delivered</button>
+    <button class="chip" data-filter="Cancelled">Cancelled</button>
+    <button class="chip" data-filter="today">Today</button>
+  </div>
+  <div class="searchbar">
+    <input type="text" id="searchInput" placeholder="Search customer, material, address…">
+  </div>
+</header>
+
+<main>
+  <div id="loadList"></div>
+  <div class="empty-state" id="emptyState" style="display:none;">
+    <div class="display">No loads yet</div>
+    <p>Tap "+ New" to add one, or "Import" to bring in a paste block, CSV file, or a map pin link.</p>
+  </div>
+</main>
+
+<!-- Load Edit Modal -->
+<div class="modal-backdrop" id="loadModalBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 id="loadModalTitle">New Load</h2>
+    <input type="hidden" id="editId">
+
+    <div class="field-row">
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="f_date">
+      </div>
+      <div class="field">
+        <label>Customer / Job</label>
+        <input type="text" id="f_customer" placeholder="e.g. Platte Valley Site 3">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Pickup — address or paste map link</label>
+      <input type="text" id="f_pickupInput" placeholder="Paste Google/Apple Maps link or type address">
+      <div class="map-hint" id="pickupHint"></div>
+    </div>
+
+    <div class="field">
+      <label>Drop-off — address or paste map link</label>
+      <input type="text" id="f_dropoffInput" placeholder="Paste Google/Apple Maps link or type address">
+      <div class="map-hint" id="dropoffHint"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Material</label>
+        <input type="text" id="f_material" placeholder="e.g. Class 5, Fill Dirt">
+      </div>
+    </div>
+
+    <div class="field">
+      <label id="f_qtyLabel">Amount per load</label>
+      <div class="amount-wrap">
+        <input type="text" id="f_qty" inputmode="decimal" placeholder="e.g. 12">
+        <div class="seg" id="unitSeg">
+          <button type="button" data-unit="t">Tons</button>
+          <button type="button" data-unit="yd">Yards</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="field" id="modeField">
+      <label>How each load is measured</label>
+      <div class="seg" id="modeSeg">
+        <button type="button" data-mode="fixed">Same every load</button>
+        <button type="button" data-mode="ticket">Ticket every load</button>
+        <button type="button" data-mode="hourly">Hourly</button>
+      </div>
+      <div class="map-hint" id="modeHint"></div>
+    </div>
+
+    <div class="field">
+      <label>Ticket #</label>
+      <input type="text" id="f_ticket" inputmode="numeric" placeholder="Optional">
+    </div>
+
+    <div class="field" id="loadCountField">
+      <label>Number of loads</label>
+      <div class="stepper">
+        <button type="button" id="cntMinus">−</button>
+        <input type="number" id="f_count" value="1" min="1" max="99" inputmode="numeric">
+        <button type="button" id="cntPlus">+</button>
+      </div>
+      <div class="map-hint">Not sure yet? Leave it at 1 and tap +1 Load after each dump.</div>
+    </div>
+
+    <div class="field">
+      <label>Status</label>
+      <div class="status-select" id="statusSelect">
+        <div class="status-opt sel-scheduled" data-status="Scheduled">Scheduled</div>
+        <div class="status-opt sel-enroute" data-status="En Route">En Route</div>
+        <div class="status-opt sel-delivered" data-status="Delivered">Delivered</div>
+        <div class="status-opt sel-cancelled" data-status="Cancelled">Cancelled</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="f_notes" placeholder="Optional"></textarea>
+    </div>
+
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="cancelLoadBtn">Cancel</button>
+      <button class="btn-save" id="saveLoadBtn">Save Load</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
+
+<!-- Ticket Modal -->
+<div class="modal-backdrop" id="ticketModalBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 id="ticketTitle">Ticket</h2>
+    <div class="field">
+      <label>Amount on ticket</label>
+      <input class="ticket-amount" type="text" id="t_amount" inputmode="decimal" placeholder="0.0">
+      <div class="ticket-unit" id="t_unit">tons</div>
+    </div>
+    <div class="field">
+      <label>Ticket #</label>
+      <input type="text" id="t_number" inputmode="numeric" placeholder="Optional">
+    </div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="cancelTicketBtn">Cancel</button>
+      <button class="btn-save" id="saveTicketBtn">Log Load</button>
+    </div>
+  </div>
+</div>
+
+<!-- Report Modal -->
+<div class="modal-backdrop" id="reportModalBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>End-of-day report</h2>
+    <div class="field-row">
+      <div class="field">
+        <label>Day</label>
+        <input type="date" id="rp_date">
+      </div>
+      <div class="field">
+        <label>Driver / truck</label>
+        <input type="text" id="rp_driver" placeholder="e.g. Tim · Truck 12">
+      </div>
+    </div>
+    <div class="report-paper" id="reportPaper"></div>
+    <div class="btn-row">
+      <button class="go" id="rpShareBtn">Share</button>
+      <button id="rpCopyBtn">Copy</button>
+      <button id="rpPrintBtn">Print</button>
+    </div>
+    <div class="btn-row">
+      <button id="rpCsvBtn">Export this day (CSV)</button>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="closeReportBtn">Close</button>
+    </div>
+  </div>
+</div>
+<div id="printArea"></div>
+
+<!-- Shared Ticket Modal -->
+<div class="modal-backdrop" id="tagModalBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>One ticket for several loads</h2>
+    <div class="job-summary" id="tagSummary"></div>
+    <div class="field">
+      <label>Ticket #</label>
+      <input type="text" id="tag_number" inputmode="numeric" placeholder="Required">
+    </div>
+    <div class="field">
+      <label id="tag_totalLabel">Ticket total (optional)</label>
+      <input type="text" id="tag_total" inputmode="decimal" placeholder="Leave blank to keep each load's amount">
+      <div class="map-hint" id="tagHint"></div>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="cancelTagBtn">Cancel</button>
+      <button class="btn-save" id="saveTagBtn">Put on ticket</button>
+    </div>
+  </div>
+</div>
+
+<!-- Time Entry Modal -->
+<div class="modal-backdrop" id="timeModalBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 id="timeTitle">Add time</h2>
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="tm_date">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Start</label>
+        <input type="time" id="tm_start">
+      </div>
+      <div class="field">
+        <label>End</label>
+        <input type="time" id="tm_end">
+      </div>
+    </div>
+    <div class="map-hint" id="tmHint"></div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="cancelTimeBtn">Cancel</button>
+      <button class="btn-save" id="saveTimeBtn">Save time</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add More Loads Modal -->
+<div class="modal-backdrop" id="moreModalBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Add several loads</h2>
+    <div class="job-summary" id="moreSummary"></div>
+
+    <div class="field">
+      <label>How many more loads</label>
+      <div class="stepper">
+        <button type="button" id="moreMinus">−</button>
+        <input type="number" id="more_count" value="1" min="1" max="99" inputmode="numeric">
+        <button type="button" id="morePlus">+</button>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="more_date">
+      </div>
+      <div class="field">
+        <label id="more_qtyLabel">Amount per load</label>
+        <input type="text" id="more_qty" inputmode="decimal" placeholder="Optional">
+      </div>
+    </div>
+
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="cancelMoreBtn">Cancel</button>
+      <button class="btn-save" id="saveMoreBtn">Add Loads</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-backdrop" id="importModalBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Data</h2>
+    <div class="tabs">
+      <button class="tab" data-tab="export">Export &amp; backup</button>
+      <button class="tab on" data-tab="paste">Import text</button>
+      <button class="tab" data-tab="csv">Import CSV</button>
+    </div>
+
+    <div class="tabpane" id="tab-export">
+      <div class="data-block">
+        <h3>Export to Excel</h3>
+        <p>Every load and time entry as a spreadsheet: date, job, amount, unit, ticket #, hours. Opens in Excel or Numbers.</p>
+        <div class="btn-row"><button class="go" id="csvAllBtn">Export all (CSV)</button></div>
+      </div>
+      <div class="data-block">
+        <h3>Backup</h3>
+        <p>Your loads live only on this device. If the browser's site data gets cleared or the app is uninstalled, they're gone. A backup file saves everything; keep it in Files/Downloads or email it to yourself. It also moves your loads between devices.</p>
+        <p>Last backup: <span class="backup-status" id="backupStatus">never</span></p>
+        <p style="margin-top:6px; font-size:11px;">App version 2026.10.20-1</p>
+        <div class="btn-row">
+          <button class="go" id="backupBtn">Save backup</button>
+          <label class="icon-btn" for="restoreFile" style="flex:1; justify-content:center; text-transform:uppercase; font-size:12px; font-weight:800; letter-spacing:0.03em;">Restore backup</label>
+          <input type="file" id="restoreFile" accept=".json,application/json" style="display:none;">
+        </div>
+      </div>
+    </div>
+
+    <div class="tabpane on" id="tab-paste">
+      <div class="import-note">
+        One load per line. Separate fields with a <code>|</code> pipe, comma, or tab, in this order:<br>
+        <code>Date | Customer | Pickup | Dropoff | Material | Tons | Status</code><br>
+        A header row is fine — it'll be detected and skipped. Missing fields are okay; fix them in the preview below.
+      </div>
+      <textarea id="pasteInput" rows="6" style="width:100%; background:var(--asphalt-2); border:1px solid #3a3733; color:var(--paper); padding:10px; border-radius:var(--radius); font-size:13px; font-family:'SF Mono',monospace;" placeholder="7/2 | Platte Valley Co | 123 Quarry Rd | 456 Site Ave | Class 5 | 22.5 | Scheduled"></textarea>
+      <button class="icon-btn" id="parsePasteBtn" style="margin-top:10px; width:100%;">Preview Import</button>
+    </div>
+
+    <div class="tabpane" id="tab-csv">
+      <div class="import-note">
+        Upload a .csv with headers like <code>date, customer, pickup, dropoff, material, tons, status</code> (any order, close matches OK).
+      </div>
+      <label class="file-drop" for="csvFile">
+        Tap to choose a CSV file<br><span style="font-size:11px;">or drag one in</span>
+        <input type="file" id="csvFile" accept=".csv,text/csv">
+      </label>
+    </div>
+
+    <div class="preview-wrap">
+      <table class="preview-table" id="previewTable" style="display:none;"></table>
+    </div>
+    <div class="import-count" id="importCount"></div>
+
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="cancelImportBtn">Close</button>
+      <button class="btn-save" id="confirmImportBtn" style="display:none;">Import Loads</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const STORAGE_KEY = "loadsheet_loads_v1";
+  let loads = [];
+  let activeFilter = "all";
+  let searchText = "";
+  let pendingImportRows = []; // rows staged in preview table
+
+  // ---------- persistence ----------
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      loads = raw ? JSON.parse(raw) : [];
+    }catch(e){ loads = []; }
+  }
+  function persist(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(loads));
+  }
+  function uid(){
+    return "L" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  }
+
+  // ---------- map link parsing ----------
+  function parseMapLink(raw){
+    if(!raw) return {address:"", link:"", lat:null, lng:null};
+    const text = raw.trim();
+    const isUrl = /^https?:\/\//i.test(text);
+    if(!isUrl){
+      return {address:text, link:"", lat:null, lng:null};
+    }
+    let lat=null, lng=null, address="";
+    let m = text.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if(m){ lat=parseFloat(m[1]); lng=parseFloat(m[2]); }
+    if(!lat){
+      m = text.match(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if(m){ lat=parseFloat(m[1]); lng=parseFloat(m[2]); }
+    }
+    if(!lat){
+      m = text.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if(m){ lat=parseFloat(m[1]); lng=parseFloat(m[2]); }
+    }
+    let q = text.match(/[?&]q=([^&]+)/);
+    if(q && !/^-?\d+\.\d+,-?\d+\.\d+$/.test(decodeURIComponent(q[1]))){
+      address = decodeURIComponent(q[1].replace(/\+/g," "));
+    }
+    let place = text.match(/\/place\/([^\/@]+)/);
+    if(place && !address){
+      address = decodeURIComponent(place[1].replace(/\+/g," "));
+    }
+    if(!address && lat && lng){
+      address = lat.toFixed(5) + ", " + lng.toFixed(5);
+    }
+    if(!address){
+      address = "Map link";
+    }
+    return {address, link:text, lat, lng};
+  }
+
+  // ---------- CRUD ----------
+  let pickupStore = {}, dropoffStore = {};
+  let currentStatus = "Scheduled";
+
+  function openLoadModal(existing){
+    document.getElementById("loadModalTitle").textContent = existing ? "Edit Load" : "New Load";
+    document.getElementById("editId").value = existing ? existing.id : "";
+    document.getElementById("f_date").value = existing ? existing.date : localDay();
+    document.getElementById("f_customer").value = existing ? existing.customer : "";
+    document.getElementById("f_material").value = existing ? existing.material : "";
+    document.getElementById("f_qty").value = existing ? existing.qty : "";
+    document.getElementById("f_ticket").value = existing ? (existing.ticketNo || "") : "";
+    currentUnit = existing ? (existing.unit || "t") : "t";
+    currentMode = existing ? (existing.billing === "hourly" ? "hourly" : existing.ticketMode ? "ticket" : "fixed") : "fixed";
+    editingHourly = !!(existing && existing.billing === "hourly");
+    if(existing) document.getElementById("loadModalTitle").textContent = editingHourly ? "Edit Hourly Job" : "Edit Load";
+    renderSegs();
+    document.getElementById("f_notes").value = existing ? existing.notes : "";
+    document.getElementById("f_pickupInput").value = existing ? (existing.pickup.link || existing.pickup.address || "") : "";
+    document.getElementById("f_dropoffInput").value = existing ? (existing.dropoff.link || existing.dropoff.address || "") : "";
+    document.getElementById("pickupHint").textContent = "";
+    document.getElementById("dropoffHint").textContent = "";
+    pickupStore = existing ? Object.assign({}, existing.pickup) : {address:"",link:"",lat:null,lng:null};
+    dropoffStore = existing ? Object.assign({}, existing.dropoff) : {address:"",link:"",lat:null,lng:null};
+    currentStatus = existing ? existing.status : "Scheduled";
+    renderStatusSelect();
+    document.getElementById("f_count").value = 1;
+    renderSegs();
+    document.getElementById("loadModalBackdrop").classList.add("open");
+  }
+  function closeLoadModal(){
+    document.getElementById("loadModalBackdrop").classList.remove("open");
+  }
+  let currentUnit = "t", currentMode = "fixed", editingHourly = false;
+  function fieldOf(id){ return document.getElementById(id).closest(".field"); }
+  function renderSegs(){
+    const editing = !!document.getElementById("editId").value;
+    const hourly = currentMode === "hourly";
+    // a load job can switch between fixed and ticket; hourly is chosen when the job is made
+    document.querySelector('#modeSeg [data-mode=hourly]').style.display = (editing && !editingHourly) ? "none" : "";
+    document.querySelectorAll('#modeSeg [data-mode=fixed], #modeSeg [data-mode=ticket]').forEach(b => b.style.display = editingHourly ? "none" : "");
+    fieldOf("f_qty").style.display = hourly ? "none" : "";
+    fieldOf("f_ticket").style.display = hourly ? "none" : "";
+    fieldOf("statusSelect").style.display = hourly ? "none" : "";
+    document.getElementById("loadCountField").style.display = (editing || hourly) ? "none" : "block";
+    document.getElementById("modeField").style.display = editingHourly ? "none" : "";
+    document.querySelectorAll("#unitSeg button").forEach(b => b.classList.toggle("on", b.dataset.unit === currentUnit));
+    document.querySelectorAll("#modeSeg button").forEach(b => b.classList.toggle("on", b.dataset.mode === currentMode));
+    const editingOne = !!document.getElementById("editId").value;
+    document.getElementById("f_qtyLabel").textContent = editingOne ? "Amount on this load"
+      : currentMode === "ticket" ? "Amount on first ticket (optional)" : "Amount per load";
+    document.getElementById("modeHint").textContent = hourly
+      ? "Start and stop a clock on the job. Add or fix time by hand any time."
+      : currentMode === "ticket"
+      ? "+1 Load asks for the ticket amount each time."
+      : "+1 Load logs this amount instantly. Use Ticket on the job when one ticket covers several loads.";
+  }
+  document.getElementById("unitSeg").addEventListener("click", function(e){
+    const b = e.target.closest("button"); if(!b) return;
+    currentUnit = b.dataset.unit; renderSegs();
+  });
+  document.getElementById("modeSeg").addEventListener("click", function(e){
+    const b = e.target.closest("button"); if(!b) return;
+    currentMode = b.dataset.mode; renderSegs();
+  });
+  function renderStatusSelect(){
+    document.querySelectorAll(".status-opt").forEach(function(el){
+      el.classList.toggle("on", el.dataset.status === currentStatus);
+    });
+  }
+  document.getElementById("statusSelect").addEventListener("click", function(e){
+    const opt = e.target.closest(".status-opt");
+    if(!opt) return;
+    currentStatus = opt.dataset.status;
+    renderStatusSelect();
+  });
+
+  function saveLoadFromForm(){
+    const id = document.getElementById("editId").value || uid();
+    // if raw text typed without being parsed via input event (e.g. autofill), parse now as fallback
+    if(!pickupStore.address){
+      pickupStore = parseMapLink(document.getElementById("f_pickupInput").value);
+    }
+    if(!dropoffStore.address){
+      dropoffStore = parseMapLink(document.getElementById("f_dropoffInput").value);
+    }
+    const rec = {
+      id: id,
+      date: document.getElementById("f_date").value || localDay(),
+      customer: document.getElementById("f_customer").value.trim(),
+      pickup: pickupStore,
+      dropoff: dropoffStore,
+      material: document.getElementById("f_material").value.trim(),
+      qty: document.getElementById("f_qty").value.trim(),
+      perLoad: document.getElementById("f_qty").value.trim(),
+      unit: currentUnit,
+      ticketMode: currentMode === "ticket",
+      ticketNo: document.getElementById("f_ticket").value.trim(),
+      status: currentStatus,
+      notes: document.getElementById("f_notes").value.trim(),
+      createdAt: (loads.find(l=>l.id===id) || {}).createdAt || new Date().toISOString()
+    };
+    const idx = loads.findIndex(l => l.id === id);
+    if(currentMode === "hourly"){
+      const old = idx >= 0 ? loads[idx] : null;
+      Object.assign(rec, {
+        billing: "hourly", qty: "", ticketNo: "", ticketMode: false,
+        entries: old ? (old.entries || []) : [],
+        status: old ? old.status : "Scheduled", jobId: id, loadNum: 1
+      });
+      if(old) loads[idx] = rec; else loads.unshift(rec);
+      persist(); closeLoadModal(); render();
+      return;
+    }
+    if(idx >= 0){
+      // editing one load keeps its job grouping
+      rec.jobId = loads[idx].jobId || loads[idx].id;
+      rec.loadNum = loads[idx].loadNum || 1;
+      rec.deliveredAt = rec.status === "Delivered" ? (loads[idx].deliveredAt || new Date().toISOString()) : null;
+      const isHead = jobLoads(rec.jobId)[0].id === rec.id;
+      rec.perLoad = (isHead && rec.qty !== loads[idx].qty) ? rec.qty : (loads[idx].perLoad || "");
+      loads[idx] = rec;
+      // customer, route and material belong to the whole job
+      loads.forEach(function(x){
+        if(x.id !== rec.id && jobKey(x) === rec.jobId){
+          x.customer = rec.customer;
+          x.pickup = Object.assign({}, rec.pickup);
+          x.dropoff = Object.assign({}, rec.dropoff);
+          x.material = rec.material;
+          x.unit = rec.unit;
+          x.ticketMode = rec.ticketMode;
+          x.perLoad = rec.perLoad;
+        }
+      });
+    } else {
+      const count = Math.max(1, Math.min(99, parseInt(document.getElementById("f_count").value, 10) || 1));
+      const now = new Date().toISOString();
+      const batch = [];
+      for(let i = 1; i <= count; i++){
+        batch.push(Object.assign({}, rec, {
+          id: i === 1 ? id : uid(),
+          ticketNo: i === 1 ? rec.ticketNo : "",
+          jobId: id,
+          loadNum: i,
+          pickup: Object.assign({}, rec.pickup),
+          dropoff: Object.assign({}, rec.dropoff),
+          createdAt: now
+        }));
+      }
+      loads = batch.concat(loads);
+    }
+    persist();
+    closeLoadModal();
+    render();
+  }
+
+  function deleteLoad(id){
+    loads = loads.filter(l => l.id !== id);
+    persist();
+    render();
+  }
+
+  // ---------- rendering ----------
+  function statusClass(status){
+    return {"Scheduled":"scheduled","En Route":"enroute","Delivered":"delivered","Cancelled":"cancelled"}[status] || "scheduled";
+  }
+
+  function mapsHref(loc){
+    if(loc.link) return loc.link;
+    if(loc.lat && loc.lng) return "https://maps.apple.com/?ll=" + loc.lat + "," + loc.lng;
+    if(loc.address) return "https://maps.apple.com/?q=" + encodeURIComponent(loc.address);
+    return "#";
+  }
+
+  function localDay(d){
+    d = d || new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function isToday(dateStr){
+    if(!dateStr) return false;
+    const today = localDay();
+    return dateStr === today;
+  }
+
+  const NEXT_STATUS = {"Scheduled":"En Route", "En Route":"Delivered"};
+  function jobKey(l){ return l.jobId || l.id; }
+  function jobInfo(l){
+    const key = jobKey(l);
+    const sibs = loads.filter(x => jobKey(x) === key)
+      .sort((a,b) => (a.loadNum||1) - (b.loadNum||1) || a.createdAt.localeCompare(b.createdAt));
+    return {
+      total: sibs.length,
+      pos: sibs.findIndex(x => x.id === l.id) + 1,
+      delivered: sibs.filter(x => x.status === "Delivered").length
+    };
+  }
+
+  function render(){
+    const list = document.getElementById("loadList");
+    const empty = document.getElementById("emptyState");
+
+    let filtered = loads.filter(function(l){
+      if(activeFilter === "today" && !isToday(l.date) &&
+         !(l.entries || []).some(e => !e.end || localDay(new Date(e.start)) === localDay())) return false;
+      if(activeFilter !== "all" && activeFilter !== "today" && l.status !== activeFilter) return false;
+      if(searchText){
+        const hay = [l.customer, l.material, l.pickup.address, l.dropoff.address, l.notes].join(" ").toLowerCase();
+        if(!hay.includes(searchText.toLowerCase())) return false;
+      }
+      return true;
+    });
+
+    const jobCreated = {};
+    loads.forEach(function(l){
+      const k = jobKey(l);
+      if(!jobCreated[k] || l.createdAt < jobCreated[k]) jobCreated[k] = l.createdAt;
+    });
+    filtered.sort(function(a,b){
+      return (b.date||"").localeCompare(a.date||"")
+        || jobCreated[jobKey(b)].localeCompare(jobCreated[jobKey(a)])
+        || jobKey(a).localeCompare(jobKey(b))
+        || (a.loadNum||1) - (b.loadNum||1);
+    });
+
+    // group matching loads by job; a job shows if any of its loads match
+    const shown = [];
+    const seen = {};
+    filtered.forEach(function(l){
+      const k = jobKey(l);
+      if(seen[k]) return;
+      seen[k] = true;
+      shown.push(k);
+    });
+
+    list.innerHTML = "";
+    if(shown.length === 0){
+      empty.style.display = "block";
+    } else {
+      empty.style.display = "none";
+      shown.forEach(function(k){
+        const sibs = jobLoads(k);
+        list.appendChild(sibs[0].billing === "hourly" ? renderHourlyCard(sibs[0])
+          : sibs.length > 1 ? renderJobCard(sibs) : renderCard(sibs[0]));
+      });
+    }
+
+    // stats (computed off all loads, not filtered)
+    const loadRecs = loads.filter(l => l.billing !== "hourly");
+    document.getElementById("statScheduled").textContent = loadRecs.filter(l=>l.status==="Scheduled").length;
+    document.getElementById("statEnroute").textContent = loadRecs.filter(l=>l.status==="En Route").length;
+    document.getElementById("statDelivered").textContent = loadRecs.filter(l=>l.status==="Delivered").length;
+    const hrs = loads.filter(l => l.billing === "hourly").reduce((h,l) => h + entriesHours(l.entries), 0);
+    const parts = [amountSummary(loadRecs.filter(l=>l.status==="Delivered"), true), hrs ? fmtHrs(hrs) + (loadRecs.length ? "h" : " hrs") : ""].filter(Boolean);
+    const statEl = document.getElementById("statTons");
+    statEl.textContent = parts.join(" / ") || "0";
+    statEl.classList.toggle("long", statEl.textContent.length > 11);
+    scheduleTick();
+  }
+
+  function jobLoads(key){
+    return loads.filter(x => jobKey(x) === key)
+      .sort((a,b) => (a.loadNum||1) - (b.loadNum||1) || a.createdAt.localeCompare(b.createdAt));
+  }
+  function unitOf(l){ return l.unit === "yd" ? "yd" : "t"; }
+  function fmtNum(n){ return n % 1 === 0 ? String(n) : n.toFixed(1); }
+  function sumUnit(list, unit){
+    return list.filter(l => unitOf(l) === unit).reduce(function(sum,l){
+      const n = parseFloat(l.qty); return sum + (isNaN(n) ? 0 : n);
+    }, 0);
+  }
+  // "84 t", "36 yd" or "84t / 36yd" when a list mixes both
+  function amountSummary(list, compact){
+    const t = sumUnit(list, "t"), y = sumUnit(list, "yd");
+    const hasT = list.some(l => unitOf(l) === "t" && l.qty), hasY = list.some(l => unitOf(l) === "yd" && l.qty);
+    if(hasT && hasY) return fmtNum(t) + "t / " + fmtNum(y) + "yd";
+    if(hasY) return fmtNum(y) + (compact ? " yd" : "");
+    if(hasT) return fmtNum(t) + (compact ? " t" : "");
+    return "";
+  }
+  function fmtQty(l){ return l.qty ? l.qty + " " + unitOf(l) : "—"; }
+  function setStatus(l, status){
+    l.status = status;
+    l.deliveredAt = status === "Delivered" ? new Date().toISOString() : null;
+  }
+  function fmtDay(d){
+    return d ? new Date(d + "T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric",weekday:"short"}) : "No date";
+  }
+  function fmtWhen(l){
+    if(l.deliveredAt){
+      const d = new Date(l.deliveredAt);
+      const sameDay = localDay(d) === localDay();
+      return (sameDay ? "" : d.toLocaleDateString(undefined,{month:"numeric",day:"numeric"}) + " ") +
+        d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+    }
+    return l.date ? new Date(l.date + "T00:00:00").toLocaleDateString(undefined,{month:"numeric",day:"numeric"}) : "";
+  }
+  function routeHtml(l){
+    return '<div class="route">' +
+      '<div class="leg"><span class="dot pickup"></span><span>' + (l.pickup.address ? '<a href="'+mapsHref(l.pickup)+'" target="_blank" rel="noopener">'+escapeHtml(l.pickup.address)+'</a>' : '<span style="color:var(--muted)">No pickup set</span>') + '</span></div>' +
+      '<div class="leg"><span class="dot dropoff"></span><span>' + (l.dropoff.address ? '<a href="'+mapsHref(l.dropoff)+'" target="_blank" rel="noopener">'+escapeHtml(l.dropoff.address)+'</a>' : '<span style="color:var(--muted)">No drop-off set</span>') + '</span></div>' +
+    '</div>';
+  }
+
+  // ---------- +1 load: one tap logs a delivered load on the job ----------
+  let undoTimer = null, lastAddedId = null;
+  function quickAddLoad(src, ticket){
+    const key = jobKey(src);
+    if(!src.jobId){ src.jobId = src.id; src.loadNum = src.loadNum || 1; }
+    const sibs = jobLoads(key);
+    const pending = sibs.find(x => x.status === "Scheduled" || x.status === "En Route");
+    const nextNum = pending ? (pending.loadNum || 1) : sibs.reduce((m, x) => Math.max(m, x.loadNum || 1), 0) + 1;
+
+    // ticket jobs: ask for the ticket amount first
+    if(sibs.some(x => x.ticketMode) && !ticket){
+      openTicketModal(src, nextNum, unitOf(src));
+      return;
+    }
+    const label = (src.customer || "job");
+    const amtTxt = ticket && ticket.qty ? " · " + ticket.qty + " " + unitOf(src) : "";
+
+    // finish the next planned/open load first, if there is one
+    if(pending){
+      const prev = {status: pending.status, deliveredAt: pending.deliveredAt || null, qty: pending.qty, ticketNo: pending.ticketNo};
+      setStatus(pending, "Delivered");
+      if(ticket){ if(ticket.qty) pending.qty = ticket.qty; pending.ticketNo = ticket.ticketNo || ""; }
+      persist();
+      render();
+      showToast("Load " + nextNum + " hauled" + amtTxt + " · " + label, null, function(){
+        Object.assign(pending, prev);
+      });
+      return;
+    }
+    const withQty = sibs.slice().reverse().find(x => x.qty);
+    const now = new Date().toISOString();
+    const rec = {
+      id: uid(), jobId: key, loadNum: nextNum,
+      date: localDay(), customer: src.customer,
+      pickup: Object.assign({}, src.pickup), dropoff: Object.assign({}, src.dropoff),
+      material: src.material,
+      qty: ticket ? (ticket.qty || "") : (src.perLoad || (withQty ? withQty.qty : "")),
+      perLoad: src.perLoad || "",
+      unit: unitOf(src), ticketMode: !!src.ticketMode,
+      ticketNo: ticket ? (ticket.ticketNo || "") : "",
+      status: "Delivered", deliveredAt: now, notes: "", createdAt: now
+    };
+    loads.unshift(rec);
+    persist();
+    render();
+    showToast("Load " + nextNum + " hauled" + amtTxt + " · " + label, rec.id);
+  }
+
+  // ---------- ticket entry sheet ----------
+  let ticketSrc = null;
+  function openTicketModal(src, num, unit){
+    ticketSrc = src;
+    document.getElementById("ticketTitle").textContent = "Load " + num + " · " + (src.customer || "job");
+    document.getElementById("t_unit").textContent = unit === "yd" ? "yards" : "tons";
+    document.getElementById("t_amount").value = "";
+    document.getElementById("t_number").value = "";
+    document.getElementById("ticketModalBackdrop").classList.add("open");
+    document.getElementById("t_amount").focus();
+  }
+  function closeTicketModal(){
+    document.getElementById("ticketModalBackdrop").classList.remove("open");
+    document.getElementById("t_amount").blur();
+    ticketSrc = null;
+  }
+  document.getElementById("cancelTicketBtn").addEventListener("click", closeTicketModal);
+  document.getElementById("ticketModalBackdrop").addEventListener("click", function(e){ if(e.target === this) closeTicketModal(); });
+  document.getElementById("saveTicketBtn").addEventListener("click", function(){
+    const amt = document.getElementById("t_amount").value.trim().replace(/[^\d.]/g, "");
+    if(!amt){ document.getElementById("t_amount").focus(); return; }
+    const src = ticketSrc;
+    const tn = document.getElementById("t_number").value.trim();
+    closeTicketModal();
+    quickAddLoad(src, {qty: amt, ticketNo: tn});
+  });
+  let undoFn = null;
+  function showToast(msg, addedId, revert){
+    document.getElementById("toastUndo").style.display = "";
+    lastAddedId = addedId;
+    undoFn = revert || null;
+    document.getElementById("toastMsg").textContent = msg;
+    document.getElementById("toast").classList.add("show");
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(hideToast, 6000);
+  }
+  function hideToast(){
+    document.getElementById("toast").classList.remove("show");
+    lastAddedId = null;
+    undoFn = null;
+  }
+  document.getElementById("toastUndo").addEventListener("click", function(){
+    if(lastAddedId){
+      loads = loads.filter(l => l.id !== lastAddedId);
+    } else if(undoFn){
+      undoFn();
+    }
+    persist();
+    render();
+    hideToast();
+  });
+
+  const openJobs = {};
+  function renderJobCard(sibs){
+    const head = sibs[0];
+    const key = jobKey(head);
+    const latest = sibs[sibs.length - 1];
+    const delivered = sibs.filter(x => x.status === "Delivered");
+    const open = sibs.filter(x => x.status === "Scheduled" || x.status === "En Route");
+    const overall = sibs.some(x => x.status === "En Route") ? "En Route"
+      : sibs.some(x => x.status === "Scheduled") ? "Scheduled"
+      : delivered.length ? "Delivered" : "Cancelled";
+    const firstDay = sibs.reduce((m,x) => (!m || (x.date && x.date < m)) ? x.date : m, "");
+    const lastDay = sibs.reduce((m,x) => (x.date && x.date > m) ? x.date : m, "");
+    const dayTxt = firstDay === lastDay ? fmtDay(firstDay) : fmtDay(firstDay) + " – " + fmtDay(lastDay);
+    const today = localDay();
+    const todayCount = delivered.filter(x => (x.deliveredAt ? localDay(new Date(x.deliveredAt)) === today : x.date === today)).length;
+    const untagged = delivered.filter(x => !x.ticketNo);
+    const showTag = !head.ticketMode;
+
+    const card = document.createElement("div");
+    card.className = "load-card";
+    let rows = "";
+    if(openJobs[key]){
+      rows = '<div class="load-rows">' + sibs.slice().reverse().map(function(x){
+        return '<div class="load-row" data-id="' + x.id + '">' +
+          '<span class="n">#' + (x.loadNum || 1) + '</span>' +
+          '<span class="when">' + escapeHtml(fmtWhen(x)) + (x.ticketNo ? ' <span class="tkt">· tkt ' + escapeHtml(x.ticketNo) + '</span>' : '') + '</span>' +
+          '<span class="q">' + escapeHtml(fmtQty(x)) + '</span>' +
+          '<span class="pill ' + statusClass(x.status) + '">' + x.status + '</span>' +
+          (NEXT_STATUS[x.status] ? '<button class="row-btn r-adv" title="Move to ' + NEXT_STATUS[x.status] + '">▸</button>' : '') +
+          '<button class="row-btn r-edit">Edit</button>' +
+          '<button class="row-btn danger r-del">✕</button>' +
+        '</div>';
+      }).join("") + '</div>';
+    }
+    card.innerHTML =
+      '<div class="stamp ' + statusClass(overall) + '">' + overall + '</div>' +
+      '<div class="card-top">' +
+        '<div><div class="card-customer">' + escapeHtml(head.customer || "Untitled job") + '</div>' +
+        '<div class="card-date">' + dayTxt + '</div></div>' +
+      '</div>' +
+      routeHtml(head) +
+      '<div class="tally">' +
+        '<div><div class="big">' + delivered.length + '</div><div class="big-lbl">Loads hauled</div></div>' +
+        '<div class="sub">' +
+          (amountSummary(delivered)
+            ? '<b>' + amountSummary(delivered) + '</b> ' + (amountSummary(delivered).indexOf("/") >= 0 ? "" : (unitOf(head) === "yd" ? "yards " : "tons ")) + escapeHtml(head.material || "")
+            : escapeHtml(head.material || "No amounts yet")) +
+          '<span class="mode-tag">' + (head.ticketMode ? "Ticket each load" : "Same each load") + '</span><br>' +
+          (todayCount ? '<b>' + todayCount + '</b> today' : 'none today') +
+          (open.length ? ' · <b>' + open.length + '</b> still open' : '') +
+          (showTag && untagged.length && delivered.some(x => x.ticketNo)
+            ? '<br><span class="untagged">' + untagged.length + ' not on a ticket yet</span>' : '') +
+        '</div>' +
+      '</div>' +
+      (head.notes ? '<div class="card-notes">' + escapeHtml(head.notes) + '</div>' : '') +
+      '<button class="plus-one">' + (head.ticketMode ? '+1 Load · enter ticket' : '+1 Load') + '</button>' +
+      '<div class="card-actions">' +
+        '<button class="toggle-btn">' + (openJobs[key] ? 'Hide loads' : 'Show ' + sibs.length + ' loads') + '</button>' +
+        (showTag ? '<button class="tag-btn">Ticket</button>' : '') +
+        '<button class="more-btn">Add several</button>' +
+        '<button class="edit-btn">Edit job</button>' +
+      '</div>' +
+      rows;
+
+    card.querySelector(".plus-one").addEventListener("click", function(){ quickAddLoad(latest); });
+    card.querySelector(".toggle-btn").addEventListener("click", function(){ openJobs[key] = !openJobs[key]; render(); });
+    card.querySelector(".more-btn").addEventListener("click", function(){ openMoreModal(latest); });
+    card.querySelector(".edit-btn").addEventListener("click", function(){ openLoadModal(head); });
+    const tagBtn = card.querySelector(".tag-btn");
+    if(tagBtn) tagBtn.addEventListener("click", function(){ openTagModal(key); });
+    card.querySelectorAll(".load-row").forEach(function(row){
+      const x = loads.find(l => l.id === row.dataset.id);
+      const adv = row.querySelector(".r-adv");
+      if(adv) adv.addEventListener("click", function(){ setStatus(x, NEXT_STATUS[x.status]); persist(); render(); });
+      row.querySelector(".r-edit").addEventListener("click", function(){ openLoadModal(x); });
+      row.querySelector(".r-del").addEventListener("click", function(){
+        if(confirm("Delete load #" + (x.loadNum || 1) + " from " + (x.customer || "this job") + "?")) deleteLoad(x.id);
+      });
+    });
+    return card;
+  }
+
+  // ---------- one ticket covering several loads ----------
+  let tagKey = null;
+  function tagTargets(key){
+    return jobLoads(key).filter(x => x.status === "Delivered" && !x.ticketNo);
+  }
+  function openTagModal(key){
+    tagKey = key;
+    const list = tagTargets(key);
+    const head = jobLoads(key)[0];
+    const u = unitOf(head) === "yd" ? "yards" : "tons";
+    document.getElementById("tagSummary").innerHTML = list.length
+      ? "<strong>" + escapeHtml(head.customer || "Job") + "</strong><br>Covers the <strong>" + list.length +
+        "</strong> hauled load" + (list.length === 1 ? "" : "s") + " not on a ticket yet: " +
+        list.map(x => "#" + (x.loadNum || 1)).join(", ") +
+        "<br>Currently " + amountSummary(list, true).replace(" t"," tons").replace(" yd"," yards")
+      : "<strong>Every hauled load is already on a ticket.</strong><br>Haul more loads first, or fix a ticket with Edit on a load.";
+    document.getElementById("tag_totalLabel").textContent = "Ticket total in " + u + " (optional)";
+    document.getElementById("tag_number").value = "";
+    document.getElementById("tag_total").value = "";
+    document.getElementById("tagHint").textContent = "";
+    document.getElementById("saveTagBtn").style.display = list.length ? "" : "none";
+    document.getElementById("tagModalBackdrop").classList.add("open");
+  }
+  function closeTagModal(){ document.getElementById("tagModalBackdrop").classList.remove("open"); tagKey = null; }
+  document.getElementById("cancelTagBtn").addEventListener("click", closeTagModal);
+  document.getElementById("tagModalBackdrop").addEventListener("click", function(e){ if(e.target === this) closeTagModal(); });
+  document.getElementById("tag_total").addEventListener("input", function(){
+    const list = tagKey ? tagTargets(tagKey) : [];
+    const tot = parseFloat(this.value);
+    document.getElementById("tagHint").textContent = (list.length && !isNaN(tot))
+      ? "Each load becomes " + (Math.round(tot / list.length * 100) / 100) + " " + unitOf(list[0]) : "";
+  });
+  document.getElementById("saveTagBtn").addEventListener("click", function(){
+    const tn = document.getElementById("tag_number").value.trim();
+    if(!tn){ document.getElementById("tag_number").focus(); return; }
+    const list = tagTargets(tagKey);
+    if(!list.length){ closeTagModal(); return; }
+    const tot = parseFloat(document.getElementById("tag_total").value);
+    const before = list.map(x => ({x: x, qty: x.qty, ticketNo: x.ticketNo}));
+    const each = isNaN(tot) ? null : String(Math.round(tot / list.length * 100) / 100);
+    list.forEach(function(x){ x.ticketNo = tn; if(each !== null) x.qty = each; });
+    persist(); closeTagModal(); render();
+    showToast("Ticket " + tn + " · " + list.length + " load" + (list.length === 1 ? "" : "s"), null, function(){
+      before.forEach(b => { b.x.qty = b.qty; b.x.ticketNo = b.ticketNo; });
+    });
+  });
+
+  // ---------- hourly jobs ----------
+  function entryMs(e){ return (e.end ? new Date(e.end) : new Date()) - new Date(e.start); }
+  function entriesHours(list){ return (list || []).reduce((h,e) => h + Math.max(0, entryMs(e)) / 3600000, 0); }
+  function fmtHrs(h){ const r = Math.round(h * 100) / 100; return r % 1 === 0 ? String(r) : r.toFixed(2).replace(/0$/, ""); }
+  function fmtClock(ms){
+    const t = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = t % 60;
+    return h + ":" + String(m).padStart(2,"0") + ":" + String(sec).padStart(2,"0");
+  }
+  function fmtHM(ms){
+    const m = Math.round(Math.max(0, ms) / 60000);
+    return Math.floor(m / 60) + "h " + String(m % 60).padStart(2,"0") + "m";
+  }
+  function fmtTime(iso){ return new Date(iso).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}); }
+
+  // live clock: update running timers once a second without re-rendering
+  let tickTimer = null;
+  function scheduleTick(){
+    const running = loads.some(l => (l.entries || []).some(e => !e.end));
+    if(running && !tickTimer){
+      tickTimer = setInterval(function(){
+        document.querySelectorAll("[data-live-start]").forEach(function(el){
+          el.textContent = fmtClock(Date.now() - new Date(el.dataset.liveStart));
+        });
+      }, 1000);
+    } else if(!running && tickTimer){
+      clearInterval(tickTimer); tickTimer = null;
+    }
+  }
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) render(); });
+
+  function toggleClock(job){
+    job.entries = job.entries || [];
+    const run = job.entries.find(e => !e.end);
+    const now = new Date().toISOString();
+    if(run){
+      run.end = now;
+      if(entryMs(run) < 60000){
+        job.entries = job.entries.filter(x => x !== run);
+        job.status = job.entries.length ? "Delivered" : "Scheduled";
+        persist(); render();
+        showToast("Under a minute, not saved", null, function(){ run.end = null; job.entries.push(run); job.status = "En Route"; });
+        return;
+      }
+      job.status = "Delivered";
+      persist(); render();
+      showToast("Clock stopped · " + fmtHM(entryMs(run)) + " · " + (job.customer || "job"), null, function(){
+        run.end = null; job.status = "En Route";
+      });
+    } else {
+      const e = {id: uid(), start: now, end: null};
+      const prevStatus = job.status;
+      job.entries.push(e);
+      job.status = "En Route";
+      persist(); render();
+      showToast("Clock started " + fmtTime(now) + " · " + (job.customer || "job"), null, function(){
+        job.entries = job.entries.filter(x => x.id !== e.id); job.status = prevStatus;
+      });
+    }
+  }
+
+  let timeJob = null, timeEntry = null;
+  function toLocalTimeInput(d){ return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0"); }
+  function openTimeModal(job, entry){
+    timeJob = job; timeEntry = entry || null;
+    document.getElementById("timeTitle").textContent = (entry ? "Edit time · " : "Add time · ") + (job.customer || "job");
+    const st = entry ? new Date(entry.start) : new Date();
+    document.getElementById("tm_date").value = localDay(st);
+    document.getElementById("tm_start").value = entry ? toLocalTimeInput(st) : "";
+    document.getElementById("tm_end").value = entry && entry.end ? toLocalTimeInput(new Date(entry.end)) : "";
+    document.getElementById("tmHint").textContent = entry && !entry.end ? "Clock is running. Leave End blank to keep it running." : "";
+    document.getElementById("timeModalBackdrop").classList.add("open");
+  }
+  function closeTimeModal(){ document.getElementById("timeModalBackdrop").classList.remove("open"); timeJob = null; timeEntry = null; }
+  document.getElementById("cancelTimeBtn").addEventListener("click", closeTimeModal);
+  document.getElementById("timeModalBackdrop").addEventListener("click", function(e){ if(e.target === this) closeTimeModal(); });
+  document.getElementById("saveTimeBtn").addEventListener("click", function(){
+    const day = document.getElementById("tm_date").value;
+    const st = document.getElementById("tm_start").value;
+    const en = document.getElementById("tm_end").value;
+    const hint = document.getElementById("tmHint");
+    if(!day || !st){ hint.textContent = "Enter a date and start time."; return; }
+    const isRunning = timeEntry && !timeEntry.end;
+    if(!en && !isRunning){ hint.textContent = "Enter an end time."; return; }
+    const start = new Date(day + "T" + st);
+    let end = en ? new Date(day + "T" + en) : null;
+    if(end && end <= start) end = new Date(end.getTime() + 86400000);  // ran past midnight
+    if(end && end - start > 24 * 3600000){ hint.textContent = "That's over 24 hours. Check the times."; return; }
+    const job = timeJob;
+    job.entries = job.entries || [];
+    if(timeEntry){
+      timeEntry.start = start.toISOString();
+      timeEntry.end = end ? end.toISOString() : null;
+    } else {
+      job.entries.push({id: uid(), start: start.toISOString(), end: end.toISOString()});
+    }
+    job.status = job.entries.some(e => !e.end) ? "En Route" : "Delivered";
+    persist(); closeTimeModal(); render();
+  });
+
+  function renderHourlyCard(job){
+    const entries = (job.entries || []).slice().sort((a,b) => a.start.localeCompare(b.start));
+    const run = entries.find(e => !e.end);
+    const today = localDay();
+    const todayH = entriesHours(entries.filter(e => localDay(new Date(e.start)) === today));
+    const totalH = entriesHours(entries);
+    const days = {};
+    entries.forEach(e => days[localDay(new Date(e.start))] = true);
+    const card = document.createElement("div");
+    card.className = "load-card";
+    const key = job.id;
+    let rows = "";
+    if(openJobs[key] && entries.length){
+      rows = '<div class="load-rows">' + entries.slice().reverse().map(function(e){
+        const d = new Date(e.start);
+        return '<div class="load-row" data-eid="' + e.id + '">' +
+          '<span class="when" style="flex:0 0 74px">' + d.toLocaleDateString(undefined,{weekday:"short",month:"numeric",day:"numeric"}) + '</span>' +
+          '<span class="when">' + fmtTime(e.start) + ' – ' + (e.end ? fmtTime(e.end) : 'running') + '</span>' +
+          '<span class="q" style="width:74px">' + (e.end ? fmtHM(entryMs(e)) : '<span class="pill cancelled">On</span>') + '</span>' +
+          '<button class="row-btn r-edit">Edit</button>' +
+          '<button class="row-btn danger r-del">✕</button>' +
+        '</div>';
+      }).join("") + '</div>';
+    }
+    card.innerHTML =
+      '<div class="stamp ' + (run ? 'clock' : 'scheduled') + '">' + (run ? 'On the clock' : 'Hourly') + '</div>' +
+      '<div class="card-top">' +
+        '<div><div class="card-customer">' + escapeHtml(job.customer || "Untitled job") + '</div>' +
+        '<div class="card-date">' + fmtDay(job.date) + (job.material ? ' · ' + escapeHtml(job.material) : '') + '</div></div>' +
+      '</div>' +
+      ((job.pickup.address || job.dropoff.address) ? routeHtml(job) : '') +
+      '<div class="tally">' +
+        '<div><div class="big">' + fmtHrs(totalH) + '</div><div class="big-lbl">Hours total</div></div>' +
+        '<div class="sub">' +
+          '<b>' + fmtHrs(todayH) + '</b> hrs today<br>' +
+          '<b>' + entries.length + '</b> time entr' + (entries.length === 1 ? 'y' : 'ies') + ' over <b>' + Object.keys(days).length + '</b> day' + (Object.keys(days).length === 1 ? '' : 's') +
+          (run ? '<br>Started <b>' + fmtTime(run.start) + '</b>' : '') +
+        '</div>' +
+      '</div>' +
+      (job.notes ? '<div class="card-notes">' + escapeHtml(job.notes) + '</div>' : '') +
+      '<button class="clock-btn' + (run ? ' running' : '') + '">' +
+        (run ? '■ Stop · <span class="live" data-live-start="' + run.start + '">' + fmtClock(entryMs(run)) + '</span>' : '▶ Start clock') +
+      '</button>' +
+      '<div class="card-actions">' +
+        '<button class="toggle-btn">' + (openJobs[key] ? 'Hide time' : 'Show time (' + entries.length + ')') + '</button>' +
+        '<button class="addtime-btn">Add time</button>' +
+        '<button class="edit-btn">Edit job</button>' +
+        '<button class="danger del-btn">Delete</button>' +
+      '</div>' +
+      rows;
+    card.querySelector(".clock-btn").addEventListener("click", function(){ toggleClock(job); });
+    card.querySelector(".toggle-btn").addEventListener("click", function(){ openJobs[key] = !openJobs[key]; render(); });
+    card.querySelector(".addtime-btn").addEventListener("click", function(){ openTimeModal(job, null); });
+    card.querySelector(".edit-btn").addEventListener("click", function(){ openLoadModal(job); });
+    card.querySelector(".del-btn").addEventListener("click", function(){
+      if(confirm("Delete the hourly job " + (job.customer || "") + " and all its time?")) deleteLoad(job.id);
+    });
+    card.querySelectorAll(".load-row").forEach(function(row){
+      const e = job.entries.find(x => x.id === row.dataset.eid);
+      row.querySelector(".r-edit").addEventListener("click", function(){ openTimeModal(job, e); });
+      row.querySelector(".r-del").addEventListener("click", function(){
+        if(confirm("Delete this time entry?")){
+          job.entries = job.entries.filter(x => x.id !== e.id);
+          job.status = job.entries.some(x => !x.end) ? "En Route" : job.entries.length ? "Delivered" : "Scheduled";
+          persist(); render();
+        }
+      });
+    });
+    return card;
+  }
+
+  function renderCard(l){
+    const card = document.createElement("div");
+    card.className = "load-card";
+    const badge = '';
+    const dateFmt = l.date ? new Date(l.date + "T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric",weekday:"short"}) : "No date";
+    card.innerHTML =
+      '<div class="stamp ' + statusClass(l.status) + '">' + l.status + '</div>' +
+      '<div class="card-top">' +
+        '<div><div class="card-customer">' + escapeHtml(l.customer || "Untitled load") + '</div>' +
+        '<div class="card-date">' + dateFmt + '</div>' + badge + '</div>' +
+      '</div>' +
+      '<div class="route">' +
+        '<div class="leg"><span class="dot pickup"></span><span>' + (l.pickup.address ? '<a href="'+mapsHref(l.pickup)+'" target="_blank" rel="noopener">'+escapeHtml(l.pickup.address)+'</a>' : '<span style="color:var(--muted)">No pickup set</span>') + '</span></div>' +
+        '<div class="leg"><span class="dot dropoff"></span><span>' + (l.dropoff.address ? '<a href="'+mapsHref(l.dropoff)+'" target="_blank" rel="noopener">'+escapeHtml(l.dropoff.address)+'</a>' : '<span style="color:var(--muted)">No drop-off set</span>') + '</span></div>' +
+      '</div>' +
+      '<div class="card-meta">' +
+        '<div><span class="m-lbl">Material</span><span class="m-val">' + escapeHtml(l.material || "—") + '</span></div>' +
+        '<div><span class="m-lbl">Amount</span><span class="m-val">' + escapeHtml(fmtQty(l)) + '</span></div>' +
+        (l.ticketNo ? '<div><span class="m-lbl">Ticket</span><span class="m-val">' + escapeHtml(l.ticketNo) + '</span></div>' : '') +
+        (l.ticketMode ? '<div><span class="m-lbl">Measured</span><span class="m-val">Ticket</span></div>' : '') +
+      '</div>' +
+      (l.notes ? '<div class="card-notes">' + escapeHtml(l.notes) + '</div>' : '') +
+      '<div class="card-actions">' +
+        (NEXT_STATUS[l.status] ? '<button class="advance adv-btn">▸ ' + NEXT_STATUS[l.status] + '</button>' : '') +
+        '<button class="plus-one small">+1 Load</button>' +
+        '<button class="edit-btn">Edit</button>' +
+        '<button class="danger del-btn">Delete</button>' +
+      '</div>';
+    card.querySelector(".edit-btn").addEventListener("click", function(){ openLoadModal(l); });
+    const adv = card.querySelector(".adv-btn");
+    if(adv) adv.addEventListener("click", function(){ setStatus(l, NEXT_STATUS[l.status]); persist(); render(); });
+    card.querySelector(".plus-one").addEventListener("click", function(){ quickAddLoad(l); });
+    card.querySelector(".del-btn").addEventListener("click", function(){
+      if(confirm("Delete this load for " + (l.customer || "this job") + "?")) deleteLoad(l.id);
+    });
+    return card;
+  }
+
+  function escapeHtml(s){
+    return String(s||"").replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  // ---------- steppers ----------
+  function wireStepper(minusId, plusId, inputId){
+    const input = document.getElementById(inputId);
+    function bump(d){
+      input.value = Math.max(1, Math.min(99, (parseInt(input.value, 10) || 1) + d));
+    }
+    document.getElementById(minusId).addEventListener("click", function(){ bump(-1); });
+    document.getElementById(plusId).addEventListener("click", function(){ bump(1); });
+  }
+  wireStepper("cntMinus", "cntPlus", "f_count");
+  wireStepper("moreMinus", "morePlus", "more_count");
+
+  // ---------- add more loads to an existing job ----------
+  let moreSource = null;
+  function openMoreModal(l){
+    moreSource = l;
+    const info = jobInfo(l);
+    document.getElementById("moreSummary").innerHTML =
+      "<strong>" + escapeHtml(l.customer || "Untitled job") + "</strong><br>" +
+      escapeHtml(l.pickup.address || "No pickup") + " → " + escapeHtml(l.dropoff.address || "No drop-off") + "<br>" +
+      escapeHtml(l.material || "No material") + " · " + info.total + " load" + (info.total === 1 ? "" : "s") + " so far";
+    document.getElementById("more_count").value = 1;
+    document.getElementById("more_qty").value = l.ticketMode ? "" : (l.qty || "");
+    document.getElementById("more_qtyLabel").textContent = "Amount per load (" + (unitOf(l) === "yd" ? "yards" : "tons") + ")";
+    document.getElementById("more_date").value = l.date || localDay();
+    document.getElementById("moreModalBackdrop").classList.add("open");
+  }
+  function closeMoreModal(){
+    document.getElementById("moreModalBackdrop").classList.remove("open");
+    moreSource = null;
+  }
+  document.getElementById("cancelMoreBtn").addEventListener("click", closeMoreModal);
+  document.getElementById("moreModalBackdrop").addEventListener("click", function(e){
+    if(e.target === this) closeMoreModal();
+  });
+  document.getElementById("saveMoreBtn").addEventListener("click", function(){
+    if(!moreSource) return;
+    const src = moreSource;
+    const key = jobKey(src);
+    if(!src.jobId){ src.jobId = src.id; src.loadNum = src.loadNum || 1; }
+    let next = loads.filter(x => jobKey(x) === key)
+      .reduce((m, x) => Math.max(m, x.loadNum || 1), 0) + 1;
+    const count = Math.max(1, Math.min(99, parseInt(document.getElementById("more_count").value, 10) || 1));
+    const qty = document.getElementById("more_qty").value.trim();
+    const date = document.getElementById("more_date").value || localDay();
+    const now = new Date().toISOString();
+    const batch = [];
+    for(let i = 0; i < count; i++){
+      batch.push({
+        id: uid(), jobId: key, loadNum: next++,
+        date: date, customer: src.customer,
+        pickup: Object.assign({}, src.pickup),
+        dropoff: Object.assign({}, src.dropoff),
+        material: src.material, qty: qty,
+        unit: unitOf(src), ticketMode: !!src.ticketMode, ticketNo: "",
+        status: "Scheduled", notes: "", createdAt: now
+      });
+    }
+    loads = batch.concat(loads);
+    persist();
+    closeMoreModal();
+    render();
+  });
+
+  // ---------- filters / search ----------
+  document.getElementById("filterChips").addEventListener("click", function(e){
+    const chip = e.target.closest(".chip");
+    if(!chip) return;
+    activeFilter = chip.dataset.filter;
+    document.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c === chip));
+    render();
+  });
+  document.getElementById("searchInput").addEventListener("input", function(e){
+    searchText = e.target.value;
+    render();
+  });
+
+  // ---------- modal wiring ----------
+  document.getElementById("newLoadBtn").addEventListener("click", function(){ openLoadModal(null); });
+  document.getElementById("cancelLoadBtn").addEventListener("click", closeLoadModal);
+  document.getElementById("saveLoadBtn").addEventListener("click", saveLoadFromForm);
+  document.getElementById("loadModalBackdrop").addEventListener("click", function(e){
+    if(e.target === this) closeLoadModal();
+  });
+  (function wireMapFields(){
+    const pIn = document.getElementById("f_pickupInput");
+    const dIn = document.getElementById("f_dropoffInput");
+    const pHint = document.getElementById("pickupHint");
+    const dHint = document.getElementById("dropoffHint");
+    function upd(input, hint, which){
+      const parsed = parseMapLink(input.value);
+      if(which === "pickup") pickupStore = parsed; else dropoffStore = parsed;
+      hint.textContent = parsed.link ? ("📍 Recognized map link → " + parsed.address) : "";
+    }
+    pIn.addEventListener("input", function(){ upd(pIn, pHint, "pickup"); });
+    pIn.addEventListener("paste", function(){ setTimeout(function(){ upd(pIn, pHint, "pickup"); }, 30); });
+    dIn.addEventListener("input", function(){ upd(dIn, dHint, "dropoff"); });
+    dIn.addEventListener("paste", function(){ setTimeout(function(){ upd(dIn, dHint, "dropoff"); }, 30); });
+  })();
+
+  // ================= REPORT =================
+  const SETTINGS_KEY = "loadsheet_settings_v1";
+  function getSettings(){ try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }catch(e){ return {}; } }
+  function saveSettings(o){ try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(Object.assign(getSettings(), o))); }catch(e){} }
+
+  function dayOfLoad(l){ return l.deliveredAt ? localDay(new Date(l.deliveredAt)) : l.date; }
+  function ranges(nums){
+    nums = nums.slice().sort((a,b) => a-b);
+    const out = []; let i = 0;
+    while(i < nums.length){
+      let j = i;
+      while(j + 1 < nums.length && nums[j+1] === nums[j] + 1) j++;
+      out.push(j > i + 1 ? "#" + nums[i] + "–#" + nums[j] : j === i + 1 ? "#" + nums[i] + ", #" + nums[j] : "#" + nums[i]);
+      i = j + 1;
+    }
+    return out.join(", ");
+  }
+  function amt(list){ return amountSummary(list, true).replace("t / ", " t / ").replace(/yd$/, " yd").replace("  ", " "); }
+  function longDay(d){ return new Date(d + "T00:00:00").toLocaleDateString(undefined,{weekday:"long", month:"short", day:"numeric", year:"numeric"}); }
+
+  // returns [{k:'title'|'meta'|'job'|'sub'|'item'|'sum'|'total'|'empty', t:'text'}]
+  function buildReportLines(day){
+    const L = [];
+    const st = getSettings();
+    L.push({k:"title", t:"Load Sheet · " + longDay(day)});
+    if(st.driver) L.push({k:"meta", t:st.driver});
+    const order = [];
+    const seenK = {};
+    loads.slice().sort((a,b) => a.createdAt.localeCompare(b.createdAt)).forEach(function(l){
+      const k = jobKey(l); if(!seenK[k]){ seenK[k] = true; order.push(k); }
+    });
+    let totLoads = 0, totHrs = 0, ticketSet = {};
+    const allDelivered = [];
+    order.forEach(function(k){
+      const sibs = jobLoads(k);
+      const head = sibs[0];
+      const routeTxt = (head.pickup.address || head.dropoff.address)
+        ? (head.pickup.address || "?") + " → " + (head.dropoff.address || "?") : "";
+      if(head.billing === "hourly"){
+        const es = (head.entries || []).filter(e => localDay(new Date(e.start)) === day)
+          .sort((a,b) => a.start.localeCompare(b.start));
+        if(!es.length) return;
+        const h = entriesHours(es);
+        totHrs += h;
+        L.push({k:"job", t:(head.customer || "Untitled job") + " — Hourly" + (head.material ? " · " + head.material : "")});
+        if(routeTxt) L.push({k:"sub", t:routeTxt});
+        es.forEach(function(e){
+          L.push({k:"item", t:fmtTime(e.start) + " – " + (e.end ? fmtTime(e.end) : "still running") + " · " + fmtHM(entryMs(e)) + (e.end ? "" : " so far")});
+        });
+        L.push({k:"sum", t:fmtHrs(h) + " hrs"});
+        if(head.notes) L.push({k:"sub", t:"Note: " + head.notes});
+        return;
+      }
+      const D = sibs.filter(x => x.status === "Delivered" && dayOfLoad(x) === day);
+      const O = sibs.filter(x => (x.status === "Scheduled" || x.status === "En Route") && x.date === day);
+      if(!D.length && !O.length) return;
+      totLoads += D.length;
+      D.forEach(x => allDelivered.push(x));
+      L.push({k:"job", t:(head.customer || "Untitled job") + (head.material ? " — " + head.material : "")});
+      if(routeTxt) L.push({k:"sub", t:routeTxt});
+      const anyTicket = D.some(x => x.ticketNo);
+      if(anyTicket){
+        const groups = {}, gOrder = [];
+        D.forEach(function(x){
+          const g = x.ticketNo || "";
+          if(!groups[g]){ groups[g] = []; gOrder.push(g); }
+          groups[g].push(x);
+          if(x.ticketNo) ticketSet[k + "|" + x.ticketNo] = true;
+        });
+        gOrder.sort((a,b) => (a === "") - (b === ""));
+        gOrder.forEach(function(g){
+          const list = groups[g];
+          const nums = ranges(list.map(x => x.loadNum || 1));
+          if(g){
+            L.push({k:"item", t:"Ticket " + g + " · " + (list.length === 1 ? "load " : list.length + " loads ") + nums + " · " + (amt(list) || "no amount")});
+          } else {
+            L.push({k:"item", t:"No ticket · " + list.length + (list.length === 1 ? " load " : " loads ") + nums + " · " + (amt(list) || "no amount")});
+          }
+        });
+      }
+      if(D.length) L.push({k:"sum", t:D.length + (D.length === 1 ? " load" : " loads") + (amt(D) ? " · " + amt(D) : "")});
+      if(O.length) L.push({k:"sub", t:O.length + " planned load" + (O.length === 1 ? "" : "s") + " not hauled"});
+      if(head.notes) L.push({k:"sub", t:"Note: " + head.notes});
+    });
+    if(L.filter(x => x.k === "job").length === 0){
+      L.push({k:"empty", t:"Nothing hauled or clocked on this day."});
+      return L;
+    }
+    const parts = [totLoads + (totLoads === 1 ? " load" : " loads")];
+    if(amt(allDelivered)) parts.push(amt(allDelivered));
+    if(totHrs) parts.push(fmtHrs(totHrs) + " hrs");
+    const nt = Object.keys(ticketSet).length;
+    if(nt) parts.push(nt + (nt === 1 ? " ticket" : " tickets"));
+    L.push({k:"total", t:"DAY TOTAL: " + parts.join(" · ")});
+    return L;
+  }
+  function reportText(lines){
+    return lines.map(function(x){
+      if(x.k === "title") return x.t.toUpperCase();
+      if(x.k === "job") return "\n" + x.t.toUpperCase();
+      if(x.k === "item" || x.k === "sum" || x.k === "sub") return "  " + x.t;
+      if(x.k === "total") return "\n" + x.t;
+      return x.t;
+    }).join("\n");
+  }
+  function reportHtml(lines){
+    return lines.map(x => '<div class="rp-' + x.k + '">' + escapeHtml(x.t) + '</div>').join("");
+  }
+  function currentReport(){ return buildReportLines(document.getElementById("rp_date").value || localDay()); }
+  function refreshReport(){ document.getElementById("reportPaper").innerHTML = reportHtml(currentReport()); }
+
+  document.getElementById("reportBtn").addEventListener("click", function(){
+    document.getElementById("rp_date").value = localDay();
+    document.getElementById("rp_driver").value = getSettings().driver || "";
+    refreshReport();
+    document.getElementById("reportModalBackdrop").classList.add("open");
+  });
+  function closeReport(){ document.getElementById("reportModalBackdrop").classList.remove("open"); }
+  document.getElementById("closeReportBtn").addEventListener("click", closeReport);
+  document.getElementById("reportModalBackdrop").addEventListener("click", function(e){ if(e.target === this) closeReport(); });
+  document.getElementById("rp_date").addEventListener("change", refreshReport);
+  document.getElementById("rp_driver").addEventListener("input", function(){ saveSettings({driver: this.value.trim()}); refreshReport(); });
+
+  function copyText(text){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text).then(() => true, () => legacyCopy(text));
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+  function legacyCopy(text){
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+    let ok = false; try{ ok = document.execCommand("copy"); }catch(e){}
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function flash(msg){ showToast(msg, null, null); document.getElementById("toastUndo").style.display = "none"; }
+
+  document.getElementById("rpShareBtn").addEventListener("click", function(){
+    const day = document.getElementById("rp_date").value || localDay();
+    const text = reportText(currentReport());
+    if(navigator.share){
+      navigator.share({title: "Load Sheet · " + longDay(day), text: text}).catch(function(){});
+    } else {
+      copyText(text).then(ok => flash(ok ? "Report copied. Paste it into a text or email." : "Couldn't copy. Use Print instead."));
+    }
+  });
+  document.getElementById("rpCopyBtn").addEventListener("click", function(){
+    copyText(reportText(currentReport())).then(ok => flash(ok ? "Report copied" : "Couldn't copy. Use Share instead."));
+  });
+  document.getElementById("rpPrintBtn").addEventListener("click", function(){
+    document.getElementById("printArea").innerHTML = '<div class="report-paper">' + reportHtml(currentReport()) + '</div>';
+    document.body.classList.add("print-report");
+    window.print();
+    setTimeout(function(){ document.body.classList.remove("print-report"); }, 500);
+  });
+  document.getElementById("rpCsvBtn").addEventListener("click", function(){
+    exportCsv(document.getElementById("rp_date").value || localDay());
+  });
+
+  // ================= EXPORT / BACKUP =================
+  function csvCell(v){
+    v = v === null || v === undefined ? "" : String(v);
+    return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+  function fmtStamp(iso){
+    if(!iso) return "";
+    const d = new Date(iso);
+    return localDay(d) + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+  }
+  function csvRows(day){
+    const head = ["Date","Job / Customer","Type","Load #","Material","Amount","Unit","Ticket #","Status","Hauled at","Clock in","Clock out","Hours","Pickup","Drop-off","Notes"];
+    const rows = [];
+    loads.slice().sort((a,b) => a.createdAt.localeCompare(b.createdAt)).forEach(function(l){
+      if(l.billing === "hourly"){
+        (l.entries || []).slice().sort((a,b) => a.start.localeCompare(b.start)).forEach(function(e){
+          const d = localDay(new Date(e.start));
+          if(day && d !== day) return;
+          rows.push([d, l.customer, "Time", "", l.material, "", "", "", e.end ? "Complete" : "Running",
+            "", fmtStamp(e.start), fmtStamp(e.end), e.end ? fmtHrs(entriesHours([e])) : "",
+            l.pickup.address, l.dropoff.address, l.notes]);
+        });
+        return;
+      }
+      const d = dayOfLoad(l);
+      if(day && d !== day) return;
+      rows.push([d, l.customer, "Load", l.loadNum || 1, l.material, l.qty, l.qty ? (unitOf(l) === "yd" ? "yd" : "tons") : "",
+        l.ticketNo, l.status, fmtStamp(l.deliveredAt), "", "", "", l.pickup.address, l.dropoff.address, l.notes]);
+    });
+    rows.sort((a,b) => String(a[0]).localeCompare(String(b[0])));
+    return [head].concat(rows);
+  }
+  function download(name, content, type){
+    const blob = new Blob([content], {type: type});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  function exportCsv(day){
+    const rows = csvRows(day);
+    if(rows.length === 1){ flash(day ? "Nothing to export for that day" : "Nothing to export yet"); return; }
+    const csv = "﻿" + rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+    download("loadsheet-" + (day || "all-" + localDay()) + ".csv", csv, "text/csv;charset=utf-8");
+    flash((rows.length - 1) + " rows exported");
+  }
+  document.getElementById("csvAllBtn").addEventListener("click", function(){ exportCsv(null); });
+
+  const BACKUP_KEY = "loadsheet_lastBackup";
+  function lastBackup(){ try{ return localStorage.getItem(BACKUP_KEY); }catch(e){ return null; } }
+  function backupStale(){
+    const lb = lastBackup();
+    return loads.length >= 5 && (!lb || (Date.now() - new Date(lb)) > 7 * 86400000);
+  }
+  function renderBackupStatus(){
+    const lb = lastBackup();
+    const el = document.getElementById("backupStatus");
+    if(!lb){ el.textContent = "never"; }
+    else {
+      const days = Math.floor((Date.now() - new Date(lb)) / 86400000);
+      el.textContent = (days === 0 ? "today" : days === 1 ? "yesterday" : days + " days ago") +
+        " (" + new Date(lb).toLocaleDateString(undefined,{month:"short", day:"numeric"}) + ")";
+    }
+    el.classList.toggle("stale", backupStale());
+    document.getElementById("importBtn").innerHTML = "Data" + (backupStale() ? '<span class="dot"></span>' : "");
+  }
+  document.getElementById("backupBtn").addEventListener("click", function(){
+    const payload = {app: "loadsheet", version: 1, exportedAt: new Date().toISOString(), settings: getSettings(), loads: loads};
+    download("loadsheet-backup-" + localDay() + ".json", JSON.stringify(payload, null, 1), "application/json");
+    try{ localStorage.setItem(BACKUP_KEY, new Date().toISOString()); }catch(e){}
+    renderBackupStatus();
+    flash("Backup saved to Downloads (" + loads.length + " records)");
+  });
+  document.getElementById("restoreFile").addEventListener("change", function(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt){
+      let data;
+      try{ data = JSON.parse(evt.target.result); }catch(err){ flash("That file isn't a Load Sheet backup"); return; }
+      const incoming = Array.isArray(data) ? data : data && data.loads;
+      if(!Array.isArray(incoming) || !incoming.every(x => x && x.id && x.pickup && x.dropoff)){
+        flash("That file isn't a Load Sheet backup"); return;
+      }
+      const byId = {};
+      loads.forEach(l => byId[l.id] = l);
+      const added = incoming.filter(x => !byId[x.id]).length;
+      const updated = incoming.length - added;
+      if(!confirm("Restore " + incoming.length + " records from this backup?\n\n" + added + " new, " + updated +
+        " will replace the same record on this iPad. Anything else on this iPad stays.")) return;
+      incoming.forEach(x => byId[x.id] = x);
+      loads = Object.keys(byId).map(k => byId[k]);
+      if(data.settings && data.settings.driver && !getSettings().driver) saveSettings({driver: data.settings.driver});
+      persist();
+      document.getElementById("importModalBackdrop").classList.remove("open");
+      render();
+      flash("Restored " + incoming.length + " records");
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+
+  // ---------- import: paste text ----------
+  document.getElementById("importBtn").addEventListener("click", function(){
+    renderBackupStatus();
+    document.getElementById("importModalBackdrop").classList.add("open");
+  });
+  document.getElementById("cancelImportBtn").addEventListener("click", function(){
+    document.getElementById("importModalBackdrop").classList.remove("open");
+    resetImportPreview();
+  });
+  document.getElementById("importModalBackdrop").addEventListener("click", function(e){
+    if(e.target === this){ this.classList.remove("open"); resetImportPreview(); }
+  });
+  document.querySelectorAll(".tab").forEach(function(tab){
+    tab.addEventListener("click", function(){
+      document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t === tab));
+      document.querySelectorAll(".tabpane").forEach(function(p){
+        p.classList.toggle("on", p.id === "tab-" + tab.dataset.tab);
+      });
+      resetImportPreview();
+    });
+  });
+
+  function resetImportPreview(){
+    pendingImportRows = [];
+    document.getElementById("previewTable").style.display = "none";
+    document.getElementById("previewTable").innerHTML = "";
+    document.getElementById("importCount").textContent = "";
+    document.getElementById("confirmImportBtn").style.display = "none";
+  }
+
+  const FIELD_ORDER = ["date","customer","pickup","dropoff","material","qty","status"];
+  const HEADER_ALIASES = {
+    date:["date","dt"], customer:["customer","job","customer/job","client","account"],
+    pickup:["pickup","from","origin","pickup address","pickup location"],
+    dropoff:["dropoff","drop-off","to","destination","delivery","dropoff address"],
+    material:["material","product","load type"],
+    qty:["qty","tons","tonnage","quantity","amount"],
+    status:["status","state"]
+  };
+
+  function detectDelimiter(line){
+    if(line.indexOf("\t") >= 0) return "\t";
+    if(line.indexOf("|") >= 0) return "|";
+    if(line.indexOf(",") >= 0) return ",";
+    return null;
+  }
+
+  function splitCsvLine(line, delim){
+    // basic quoted-field aware split
+    const out = [];
+    let cur = "", inQuotes = false;
+    for(let i=0;i<line.length;i++){
+      const c = line[i];
+      if(c === '"'){ inQuotes = !inQuotes; continue; }
+      if(c === delim && !inQuotes){ out.push(cur); cur=""; continue; }
+      cur += c;
+    }
+    out.push(cur);
+    return out.map(s => s.trim());
+  }
+
+  function mapHeaderRow(cells){
+    const map = {}; // field -> column index
+    cells.forEach(function(cell, i){
+      const norm = cell.toLowerCase().trim();
+      for(const field in HEADER_ALIASES){
+        if(HEADER_ALIASES[field].indexOf(norm) >= 0 && map[field] === undefined){
+          map[field] = i;
+        }
+      }
+    });
+    return map;
+  }
+
+  function rowsToLoadObjects(rows){
+    // rows: array of {date,customer,pickup,dropoff,material,qty,status}
+    return rows.map(function(r){
+      let status = (r.status || "Scheduled").trim();
+      const validStatuses = ["Scheduled","En Route","Delivered","Cancelled"];
+      const match = validStatuses.find(s => s.toLowerCase() === status.toLowerCase());
+      status = match || "Scheduled";
+      let date = (r.date || "").trim();
+      const parsedDate = normalizeDate(date);
+      return {
+        id: uid(),
+        date: parsedDate || localDay(),
+        customer: (r.customer||"").trim(),
+        pickup: parseMapLink((r.pickup||"").trim()),
+        dropoff: parseMapLink((r.dropoff||"").trim()),
+        material: (r.material||"").trim(),
+        qty: (r.qty||"").trim(),
+        unit: "t", ticketMode: false, ticketNo: "",
+        status: status,
+        notes: "",
+        createdAt: new Date().toISOString()
+      };
+    });
+  }
+
+  function normalizeDate(str){
+    if(!str) return null;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?$/);
+    if(m){
+      let mo = parseInt(m[1],10), da = parseInt(m[2],10);
+      let yr = m[3] ? parseInt(m[3],10) : new Date().getFullYear();
+      if(yr < 100) yr += 2000;
+      if(mo>=1 && mo<=12 && da>=1 && da<=31){
+        return yr + "-" + String(mo).padStart(2,"0") + "-" + String(da).padStart(2,"0");
+      }
+    }
+    const d = new Date(str);
+    if(!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+    return null;
+  }
+
+  function showPreview(rows){
+    pendingImportRows = rows;
+    const table = document.getElementById("previewTable");
+    if(rows.length === 0){
+      document.getElementById("importCount").textContent = "No rows recognized. Check formatting.";
+      table.style.display = "none";
+      document.getElementById("confirmImportBtn").style.display = "none";
+      return;
+    }
+    let html = "<tr><th>Date</th><th>Customer</th><th>Pickup</th><th>Dropoff</th><th>Material</th><th>Qty</th><th>Status</th></tr>";
+    rows.forEach(function(r, idx){
+      html += "<tr data-idx='"+idx+"'>" +
+        FIELD_ORDER.map(function(f){
+          return "<td contenteditable='true' data-field='"+f+"'>"+escapeHtml(r[f]||"")+"</td>";
+        }).join("") +
+        "</tr>";
+    });
+    table.innerHTML = html;
+    table.style.display = "table";
+    table.querySelectorAll("td[contenteditable]").forEach(function(td){
+      td.addEventListener("input", function(){
+        const tr = td.closest("tr");
+        const idx = parseInt(tr.dataset.idx,10);
+        pendingImportRows[idx][td.dataset.field] = td.textContent;
+      });
+    });
+    document.getElementById("importCount").textContent = rows.length + " load" + (rows.length===1?"":"s") + " ready to import. Tap any cell to fix it.";
+    document.getElementById("confirmImportBtn").style.display = "block";
+  }
+
+  document.getElementById("parsePasteBtn").addEventListener("click", function(){
+    const raw = document.getElementById("pasteInput").value;
+    const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    if(lines.length === 0){ showPreview([]); return; }
+    const delim = detectDelimiter(lines[0]);
+    let rows = [];
+    let headerMap = null;
+    let startIdx = 0;
+    if(delim){
+      const firstCells = splitCsvLine(lines[0], delim);
+      const possibleHeader = mapHeaderRow(firstCells);
+      if(Object.keys(possibleHeader).length >= 2){
+        headerMap = possibleHeader;
+        startIdx = 1;
+      }
+      for(let i=startIdx; i<lines.length; i++){
+        const cells = splitCsvLine(lines[i], delim);
+        const row = {};
+        if(headerMap){
+          for(const field in headerMap){ row[field] = cells[headerMap[field]] || ""; }
+        } else {
+          FIELD_ORDER.forEach(function(field, fi){ row[field] = cells[fi] || ""; });
+        }
+        rows.push(row);
+      }
+    } else {
+      // no delimiter found — dump whole line into customer field, flag for manual review
+      lines.forEach(function(line){
+        rows.push({date:"", customer:line, pickup:"", dropoff:"", material:"", qty:"", status:"Scheduled"});
+      });
+    }
+    showPreview(rows);
+  });
+
+  // ---------- import: CSV file ----------
+  document.getElementById("csvFile").addEventListener("change", function(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt){
+      const text = evt.target.result;
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      if(lines.length === 0){ showPreview([]); return; }
+      const delim = detectDelimiter(lines[0]) || ",";
+      const headerCells = splitCsvLine(lines[0], delim);
+      const headerMap = mapHeaderRow(headerCells);
+      const useHeader = Object.keys(headerMap).length >= 2;
+      const startIdx = useHeader ? 1 : 0;
+      let rows = [];
+      for(let i=startIdx; i<lines.length; i++){
+        const cells = splitCsvLine(lines[i], delim);
+        const row = {};
+        if(useHeader){
+          for(const field in headerMap){ row[field] = cells[headerMap[field]] || ""; }
+        } else {
+          FIELD_ORDER.forEach(function(field, fi){ row[field] = cells[fi] || ""; });
+        }
+        rows.push(row);
+      }
+      showPreview(rows);
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById("confirmImportBtn").addEventListener("click", function(){
+    if(pendingImportRows.length === 0) return;
+    const newLoads = rowsToLoadObjects(pendingImportRows);
+    loads = newLoads.concat(loads);
+    persist();
+    document.getElementById("importModalBackdrop").classList.remove("open");
+    resetImportPreview();
+    document.getElementById("pasteInput").value = "";
+    document.getElementById("csvFile").value = "";
+    render();
+  });
+
+  // ---------- init ----------
+  load();
+  render();
+  renderBackupStatus();
+
+  // ---------- installed-app support ----------
+  // ask the browser not to evict our saved loads under storage pressure
+  if(navigator.storage && navigator.storage.persist){
+    navigator.storage.persisted().then(function(p){ if(!p) navigator.storage.persist(); }).catch(function(){});
+  }
+  // offline: cache the app on the device so it opens with no signal
+  if("serviceWorker" in navigator && location.protocol !== "file:"){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("sw.js").then(function(reg){
+        reg.addEventListener("updatefound", function(){
+          const nw = reg.installing;
+          nw && nw.addEventListener("statechange", function(){
+            if(nw.state === "installed" && navigator.serviceWorker.controller){
+              flash("App updated. Close and reopen to use the new version.");
+            }
+          });
+        });
+      }).catch(function(){});
+    });
+  }
+  window.LOADSHEET_VERSION = "2026.10.20-1";
+})();
+</script>
+</body>
+</html>
