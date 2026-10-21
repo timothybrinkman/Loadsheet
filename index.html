@@ -296,6 +296,17 @@
   .fab-spacer{height:10px;}
   ::selection{background:var(--orange); color:#1c1200;}
 
+  /* ---------- crew sync ---------- */
+  .brand{flex-direction:column; align-items:flex-start; gap:2px;}
+  .sync-line{display:none; background:none; border:0; padding:0; font-size:10.5px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#9c8f7c; text-align:left;}
+  .sync-line.show{display:block;}
+  .sync-line::before{content:"●"; margin-right:5px;}
+  .sync-line.ok{color:#6fc28f;}
+  .sync-line.warn{color:var(--enroute);}
+  .sync-line.bad{color:#e07a72;}
+  #officeLink{flex:1; display:flex; align-items:center; justify-content:center; text-decoration:none; padding:12px 8px; border-radius:var(--radius);
+    font-weight:800; text-transform:uppercase; font-size:12px; letter-spacing:0.03em; background:var(--paper); color:var(--ink);}
+
   /* ---------- truck + auto row ---------- */
   .ops-row{display:flex; gap:8px; margin-top:12px;}
   .topbar-actions button{white-space:nowrap;}
@@ -388,6 +399,7 @@
   <div class="topbar-row">
     <div class="brand">
       <span class="display">Load&nbsp;Sheet</span>
+      <button class="sync-line" id="syncLine"></button>
     </div>
     <div class="topbar-actions">
       <button class="icon-btn" id="reportBtn">Report</button>
@@ -722,12 +734,21 @@
     <div class="modal-handle"></div>
     <h2>Data</h2>
     <div class="tabs">
-      <button class="tab" data-tab="export">Export &amp; backup</button>
-      <button class="tab on" data-tab="paste">Import text</button>
+      <button class="tab on" data-tab="export">Sync &amp; backup</button>
+      <button class="tab" data-tab="paste">Import text</button>
       <button class="tab" data-tab="csv">Import CSV</button>
     </div>
 
-    <div class="tabpane" id="tab-export">
+    <div class="tabpane on" id="tab-export">
+      <div class="data-block" id="cloudBlock" style="display:none;">
+        <h3>Crew sync</h3>
+        <p id="cloudText"></p>
+        <div class="btn-row">
+          <button class="go" id="cloudSignIn">Sign in with Google</button>
+          <a id="officeLink" href="office.html" style="display:none;">Office view</a>
+          <button id="cloudSignOut">Sign out</button>
+        </div>
+      </div>
       <div class="data-block">
         <h3>Export to Excel</h3>
         <p>Every load and time entry as a spreadsheet: date, job, amount, unit, ticket #, hours. Opens in Excel or Numbers.</p>
@@ -735,9 +756,9 @@
       </div>
       <div class="data-block">
         <h3>Backup</h3>
-        <p>Your loads live only on this device. If the browser's site data gets cleared or the app is uninstalled, they're gone. A backup file saves everything; keep it in Files/Downloads or email it to yourself. It also moves your loads between devices.</p>
+        <p>Without crew sync, your loads live only on this device: clearing the browser's site data or uninstalling the app erases them. A backup file saves everything; keep it in Files/Downloads or email it to yourself. It can also move loads between devices.</p>
         <p>Last backup: <span class="backup-status" id="backupStatus">never</span></p>
-        <p style="margin-top:6px; font-size:11px;">App version 2026.10.20-2</p>
+        <p style="margin-top:6px; font-size:11px;">App version 2026.10.20-3</p>
         <div class="btn-row">
           <button class="go" id="backupBtn">Save backup</button>
           <label class="icon-btn" for="restoreFile" style="flex:1; justify-content:center; text-transform:uppercase; font-size:12px; font-weight:800; letter-spacing:0.03em;">Restore backup</label>
@@ -746,7 +767,7 @@
       </div>
     </div>
 
-    <div class="tabpane on" id="tab-paste">
+    <div class="tabpane" id="tab-paste">
       <div class="import-note">
         One load per line. Separate fields with a <code>|</code> pipe, comma, or tab, in this order:<br>
         <code>Date | Customer | Pickup | Dropoff | Material | Tons | Status</code><br>
@@ -794,8 +815,12 @@
       loads = raw ? JSON.parse(raw) : [];
     }catch(e){ loads = []; }
   }
+  function persistQuiet(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(loads)); }catch(e){}
+  }
   function persist(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(loads));
+    persistQuiet();
+    try{ window.LoadSheetCloud && window.LoadSheetCloud.onLocalChange(); }catch(e){ console.error(e); }
   }
   function uid(){
     return "L" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
@@ -1972,13 +1997,14 @@
     el.classList.toggle("stale", backupStale());
     document.getElementById("importBtn").innerHTML = "Data" + (backupStale() ? '<span class="dot"></span>' : "");
   }
-  document.getElementById("backupBtn").addEventListener("click", function(){
+  function downloadBackup(){
     const payload = {app: "loadsheet", version: 1, exportedAt: new Date().toISOString(), settings: getSettings(), loads: loads};
     download("loadsheet-backup-" + localDay() + ".json", JSON.stringify(payload, null, 1), "application/json");
     try{ localStorage.setItem(BACKUP_KEY, new Date().toISOString()); }catch(e){}
     renderBackupStatus();
     flash("Backup saved to Downloads (" + loads.length + " records)");
-  });
+  }
+  document.getElementById("backupBtn").addEventListener("click", downloadBackup);
   document.getElementById("restoreFile").addEventListener("change", function(e){
     const file = e.target.files[0];
     if(!file) return;
@@ -2509,6 +2535,18 @@
     autoTrigger({key: key, head: head}, "link");
   }
 
+  // ---------- hooks for crew sync (cloud.js) ----------
+  window.LoadSheetApp = {
+    getLoads: function(){ return loads; },
+    setLoads: function(arr){ loads = arr; persistQuiet(); render(); },
+    persistQuiet: persistQuiet,
+    getSettings: getSettings,
+    saveSettings: saveSettings,
+    flash: function(m){ flash(m); },
+    downloadBackup: downloadBackup,
+    openData: function(){ document.getElementById("importBtn").click(); }
+  };
+
   // ---------- init ----------
   load();
   render();
@@ -2538,8 +2576,9 @@
       }).catch(function(){});
     });
   }
-  window.LOADSHEET_VERSION = "2026.10.20-2";
+  window.LOADSHEET_VERSION = "2026.10.20-3";
 })();
 </script>
+<script type="module" src="cloud.js"></script>
 </body>
 </html>

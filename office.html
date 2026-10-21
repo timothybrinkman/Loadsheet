@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1c1b1a">
+<title>Load Sheet Office</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  :root{
+    --asphalt:#1c1b1a; --asphalt-2:#26241f; --line-d:#3a3733;
+    --paper:#f4efe6; --paper-dim:#e7e0d1; --ink:#231f1a; --muted:#6b5b4f; --line:#d8cfbc;
+    --orange:#ff6a13; --orange-dark:#c94f0a;
+    --scheduled:#5c7080; --enroute:#d9a441; --delivered:#3c8c5d; --cancelled:#c1443c;
+    --radius:3px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--asphalt); color:var(--paper);
+    background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,0.035) 1px, transparent 0); background-size:14px 14px;
+    font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif; -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:"SF Mono",Menlo,monospace;}
+  .display{font-family:"Arial Black","Helvetica Neue",Arial,sans-serif; font-weight:900; letter-spacing:0.02em; text-transform:uppercase;}
+  header{
+    position:sticky; top:0; z-index:20; background:var(--asphalt); border-bottom:3px solid var(--orange);
+    padding:calc(12px + env(safe-area-inset-top)) 16px 12px;
+  }
+  .row{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .brand .display{font-size:20px;}
+  .brand .tag{font-size:11px; font-weight:800; letter-spacing:0.14em; color:var(--orange); text-transform:uppercase; margin-left:8px;}
+  .spacer{flex:1;}
+  .live{font-size:11px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#9c8f7c;}
+  .live.ok{color:#6fc28f;} .live.warn{color:var(--enroute);}
+  .live::before{content:"●"; margin-right:5px;}
+  button, select, input{font:inherit;}
+  .btn{background:var(--asphalt-2); border:1px solid #4a463f; color:var(--paper); border-radius:var(--radius); padding:9px 12px; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap;}
+  .btn.go{background:var(--orange); border-color:var(--orange-dark); color:#1c1200;}
+  .btn:focus-visible, select:focus-visible, input:focus-visible{outline:2px solid var(--orange); outline-offset:2px;}
+  .controls{margin-top:12px;}
+  .controls select, .controls input{background:var(--asphalt-2); border:1px solid var(--line-d); color:var(--paper); border-radius:var(--radius); padding:9px 10px; font-size:14px;}
+  .daynav{display:flex; gap:4px; align-items:center;}
+  .daynav .btn{padding:9px 11px;}
+  main{padding:16px; max-width:1280px; margin:0 auto;}
+  .day-title{font-size:13px; color:#9c8f7c; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; margin:2px 0 12px;}
+
+  .tiles{display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; margin-bottom:18px;}
+  .tile{background:var(--asphalt-2); border:1px solid var(--line-d); border-radius:var(--radius); padding:12px 10px;}
+  .tile .n{font-size:28px; font-weight:900; font-family:"SF Mono",Menlo,monospace; line-height:1;}
+  .tile .l{font-size:10px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#9c8f7c; margin-top:6px;}
+  .tile.o .n{color:var(--orange);} .tile.g .n{color:#6fc28f;}
+
+  h2.sec{font-size:13px; letter-spacing:0.1em; text-transform:uppercase; color:#c9bfae; margin:22px 0 10px; font-weight:900;}
+  .board{display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:14px;}
+  .dcard{background:var(--paper); color:var(--ink); border-radius:var(--radius); box-shadow:0 3px 0 rgba(0,0,0,0.35); position:relative; overflow:hidden; padding:14px 14px 14px 26px;}
+  .dcard::before{content:""; position:absolute; left:0; top:0; bottom:0; width:14px;
+    background-image:radial-gradient(circle 2.5px, var(--asphalt) 2.4px, transparent 2.5px); background-size:14px 14px; background-position:6px 4px;
+    background-color:var(--paper-dim); border-right:1px dashed #b9ac93;}
+  .dname{font-size:17px; font-weight:900;}
+  .dnow{font-size:12px; color:var(--muted); margin-top:3px; line-height:1.45;}
+  .dnow b{color:var(--ink);}
+  .onclock{display:inline-block; margin-top:6px; font-size:10px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:#fff; background:var(--cancelled); padding:3px 7px; border-radius:2px;}
+  .dtot{display:flex; gap:18px; margin:10px 0 6px; padding-top:10px; border-top:1px dashed #c9bfae;}
+  .dtot .n{font-size:26px; font-weight:900; font-family:"SF Mono",Menlo,monospace; line-height:1;}
+  .dtot .l{font-size:9.5px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-top:4px;}
+  .job{padding:8px 0; border-top:1px solid var(--paper-dim); font-size:13px; line-height:1.45;}
+  .job .jn{font-weight:900; text-transform:uppercase; font-size:12px; letter-spacing:0.03em;}
+  .job .jd{color:var(--muted); font-size:12px;}
+  .job .jd .mono{color:var(--ink);}
+
+  .tablewrap{overflow-x:auto; -webkit-overflow-scrolling:touch; background:var(--paper); border-radius:var(--radius);}
+  table{width:100%; border-collapse:collapse; color:var(--ink); font-size:13px;}
+  th{text-align:left; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding:9px 10px; border-bottom:2px solid var(--ink); white-space:nowrap; background:var(--paper);}
+  td{padding:8px 10px; border-bottom:1px solid var(--paper-dim); white-space:nowrap;}
+  td.num{font-family:"SF Mono",Menlo,monospace; text-align:right;}
+  tr:nth-child(even) td{background:#efe9de;}
+  .pill{font-size:9.5px; font-weight:900; text-transform:uppercase; letter-spacing:0.06em; padding:3px 6px; border-radius:2px; color:#fff;}
+  .pill.t{background:var(--scheduled);} .pill.a{background:var(--delivered);} .pill.r{background:var(--cancelled);}
+
+  .empty{background:var(--asphalt-2); border:1px dashed #4a463f; border-radius:var(--radius); padding:28px; text-align:center; color:#9c8f7c; font-size:14px;}
+  .gate{max-width:420px; margin:12vh auto 0; background:var(--paper); color:var(--ink); border-radius:var(--radius); padding:26px 24px; text-align:center;}
+  .gate h1{margin:0 0 6px; font-size:22px;}
+  .gate p{color:var(--muted); line-height:1.5; font-size:14px;}
+
+  .crew{background:var(--asphalt-2); border:1px solid var(--line-d); border-radius:var(--radius); padding:14px;}
+  .crew-row{display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--line-d); font-size:14px; flex-wrap:wrap;}
+  .crew-row .em{flex:1; min-width:180px; font-family:"SF Mono",Menlo,monospace; font-size:13px;}
+  .crew-row select{background:var(--asphalt); border:1px solid var(--line-d); color:var(--paper); border-radius:var(--radius); padding:7px;}
+  .crew-add{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;}
+  .crew-add input{flex:1; min-width:200px; background:var(--asphalt); border:1px solid var(--line-d); color:var(--paper); border-radius:var(--radius); padding:10px;}
+  .crew-add select{background:var(--asphalt); border:1px solid var(--line-d); color:var(--paper); border-radius:var(--radius); padding:10px;}
+  .hint{font-size:12px; color:#9c8f7c; margin-top:8px; line-height:1.5;}
+  .toast{position:fixed; left:50%; bottom:20px; transform:translate(-50%,120px); background:var(--paper); color:var(--ink); padding:12px 16px; border-left:6px solid var(--delivered); border-radius:var(--radius); font-weight:800; box-shadow:0 6px 24px rgba(0,0,0,0.5); transition:transform .2s; z-index:50;}
+  .toast.show{transform:translate(-50%,0);}
+
+  @media (max-width: 760px){
+    .tiles{grid-template-columns:repeat(3, minmax(0,1fr));}
+    .controls{gap:8px;}
+    .controls select{flex:1; min-width:0;}
+  }
+  @media (prefers-reduced-motion: reduce){ .toast{transition:none;} }
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <div class="brand"><span class="display">Load Sheet</span><span class="tag">Office</span></div>
+    <span class="live" id="live">Connecting…</span>
+    <div class="spacer"></div>
+    <a class="btn" href="./" style="text-decoration:none;">Driver app</a>
+    <button class="btn" id="signOutBtn" style="display:none;">Sign out</button>
+  </div>
+  <div class="row controls" id="controls" style="display:none;">
+    <div class="daynav">
+      <button class="btn" id="prevDay" aria-label="Previous day">‹</button>
+      <input type="date" id="day">
+      <button class="btn" id="nextDay" aria-label="Next day">›</button>
+      <button class="btn" id="todayBtn">Today</button>
+    </div>
+    <select id="fDriver"><option value="">All drivers</option></select>
+    <select id="fTruck"><option value="">All trucks</option></select>
+    <div class="spacer"></div>
+    <button class="btn go" id="csvBtn">Export day (CSV)</button>
+  </div>
+</header>
+
+<main id="main">
+  <div class="gate" id="gate">
+    <h1 class="display">Office view</h1>
+    <p id="gateText">Loading…</p>
+    <button class="btn go" id="signInBtn" style="display:none;">Sign in with Google</button>
+  </div>
+
+  <div id="app" style="display:none;">
+    <div class="day-title" id="dayTitle"></div>
+    <div class="tiles">
+      <div class="tile o"><div class="n" id="tLoads">0</div><div class="l">Loads</div></div>
+      <div class="tile"><div class="n" id="tTons">0</div><div class="l">Tons</div></div>
+      <div class="tile"><div class="n" id="tYards">0</div><div class="l">Yards</div></div>
+      <div class="tile"><div class="n" id="tHours">0</div><div class="l">Hours</div></div>
+      <div class="tile g"><div class="n" id="tDrivers">0</div><div class="l">Drivers</div></div>
+      <div class="tile g"><div class="n" id="tTrucks">0</div><div class="l">Trucks</div></div>
+    </div>
+
+    <h2 class="sec">By driver</h2>
+    <div class="board" id="board"></div>
+
+    <h2 class="sec">Every load and clock entry</h2>
+    <div class="tablewrap"><table id="tbl"></table></div>
+
+    <div id="crewSec" style="display:none;">
+      <h2 class="sec">Crew list</h2>
+      <div class="crew">
+        <div id="crewRows"></div>
+        <div class="crew-add">
+          <input type="email" id="newEmail" placeholder="driver's Google email, e.g. name@gmail.com" autocomplete="off">
+          <select id="newRole"><option value="driver">Driver</option><option value="office">Office</option><option value="admin">Admin</option></select>
+          <button class="btn go" id="addMember">Add to crew</button>
+        </div>
+        <div class="hint"><b>Driver:</b> logs loads, sees only their own. <b>Office:</b> sees everyone on this page. <b>Admin:</b> office plus can change this list. Drivers sign in with the Google account you add here.</div>
+      </div>
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { firebaseConfig, ORG } from "./config.js";
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function toast(m){ const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 3500); }
+function localDay(d){ d = d || new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+function shiftDay(day, n){ const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return localDay(d); }
+function longDay(d){ return new Date(d + "T00:00:00").toLocaleDateString(undefined,{weekday:"long", month:"long", day:"numeric", year:"numeric"}); }
+function fmtTime(iso){ return iso ? new Date(iso).toLocaleTimeString(undefined,{hour:"numeric", minute:"2-digit"}) : ""; }
+function fmtNum(n){ return n % 1 === 0 ? String(n) : n.toFixed(1); }
+function fmtHrs(h){ const r = Math.round(h * 100) / 100; return r % 1 === 0 ? String(r) : r.toFixed(2).replace(/0$/, ""); }
+function unitOf(l){ return l.unit === "yd" ? "yd" : "t"; }
+function dayOfLoad(l){ return l.deliveredAt ? localDay(new Date(l.deliveredAt)) : l.date; }
+function entryMs(e){ return (e.end ? new Date(e.end) : new Date()) - new Date(e.start); }
+function truckLbl(t){ return /^\s*\d+\s*$/.test(t || "") ? "Truck " + t.trim() : (t || ""); }
+function sumUnit(list, u){ return list.filter(l => unitOf(l) === u).reduce((s,l) => { const n = parseFloat(l.qty); return s + (isNaN(n) ? 0 : n); }, 0); }
+function amt(list){
+  const t = sumUnit(list, "t"), y = sumUnit(list, "yd"), p = [];
+  if (list.some(l => unitOf(l) === "t" && l.qty)) p.push(fmtNum(t) + " t");
+  if (list.some(l => unitOf(l) === "yd" && l.qty)) p.push(fmtNum(y) + " yd");
+  return p.join(" / ");
+}
+function ranges(nums){
+  nums = nums.slice().sort((a,b) => a-b); const out = []; let i = 0;
+  while (i < nums.length){ let j = i; while (j+1 < nums.length && nums[j+1] === nums[j]+1) j++;
+    out.push(j > i+1 ? "#" + nums[i] + "–#" + nums[j] : j === i+1 ? "#" + nums[i] + ", #" + nums[j] : "#" + nums[i]); i = j+1; }
+  return out.join(", ");
+}
+
+let backend, me = null, role = null, records = new Map(), unsubAll = null, unsubCrew = null, crew = [];
+$("day").value = localDay();
+
+// ---------- what happened on the chosen day ----------
+function dayData(){
+  const day = $("day").value || localDay();
+  const loadsDay = [], timeDay = [];
+  for (const r of records.values()){
+    if (r.billing === "hourly"){
+      (r.entries || []).forEach(e => { if (localDay(new Date(e.start)) === day) timeDay.push({job: r, e}); });
+    } else if (r.status === "Delivered" && dayOfLoad(r) === day){
+      loadsDay.push(r);
+    }
+  }
+  const fD = $("fDriver").value, fT = $("fTruck").value;
+  const drv = r => r.driverEmail || r.driverUid || "unknown";
+  const L = loadsDay.filter(r => (!fD || drv(r) === fD) && (!fT || (r.truck || "") === fT));
+  const T = timeDay.filter(x => (!fD || drv(x.job) === fD) && (!fT || (x.e.truck || "") === fT));
+  return {day, L, T, allL: loadsDay, allT: timeDay, drv};
+}
+
+function render(){
+  const {day, L, T, allL, allT, drv} = dayData();
+  $("dayTitle").textContent = longDay(day) + (day === localDay() ? " · today, live" : "");
+
+  // filter choices come from the whole day
+  const drivers = new Map(), trucks = new Set();
+  allL.forEach(r => { drivers.set(drv(r), r.driverName || r.driverEmail || "Driver"); if (r.truck) trucks.add(r.truck); });
+  allT.forEach(x => { drivers.set(drv(x.job), x.job.driverName || x.job.driverEmail || "Driver"); if (x.e.truck) trucks.add(x.e.truck); });
+  fillSelect($("fDriver"), "All drivers", Array.from(drivers, ([v, n]) => [v, n]));
+  fillSelect($("fTruck"), "All trucks", Array.from(trucks).sort((a,b) => a.localeCompare(b, undefined, {numeric:true})).map(t => [t, truckLbl(t)]));
+
+  const hrs = T.reduce((h,x) => h + Math.max(0, entryMs(x.e)) / 3600000, 0);
+  const dset = new Set(L.map(drv).concat(T.map(x => drv(x.job))));
+  const tset = new Set(L.map(r => r.truck).concat(T.map(x => x.e.truck)).filter(Boolean));
+  $("tLoads").textContent = L.length;
+  $("tTons").textContent = fmtNum(sumUnit(L, "t"));
+  $("tYards").textContent = fmtNum(sumUnit(L, "yd"));
+  $("tHours").textContent = fmtHrs(hrs);
+  $("tDrivers").textContent = dset.size;
+  $("tTrucks").textContent = tset.size;
+
+  // ---- board: one card per driver ----
+  const byDriver = new Map();
+  const slot = k => byDriver.get(k) || (byDriver.set(k, {loads: [], time: []}), byDriver.get(k));
+  L.forEach(r => slot(drv(r)).loads.push(r));
+  T.forEach(x => slot(drv(x.job)).time.push(x));
+  const board = $("board");
+  if (!byDriver.size){
+    board.innerHTML = '<div class="empty">Nothing logged ' + (day === localDay() ? "yet today" : "on this day") + '. Loads show up here within seconds of a driver logging them (or when their truck gets signal).</div>';
+  } else {
+    board.innerHTML = Array.from(byDriver.entries()).map(([k, d]) => {
+      const name = (d.loads[0] && d.loads[0].driverName) || (d.time[0] && d.time[0].job.driverName) || k;
+      const events = d.loads.map(r => ({at: r.deliveredAt || r.updatedAt, truck: r.truck, job: r.customer, kind: "load"}))
+        .concat(d.time.map(x => ({at: x.e.end || x.e.start, truck: x.e.truck, job: x.job.customer, kind: x.e.end ? "clock out" : "clocked in"})))
+        .sort((a,b) => (b.at || "").localeCompare(a.at || ""));
+      const last = events[0];
+      const running = d.time.find(x => !x.e.end);
+      const h = d.time.reduce((s,x) => s + Math.max(0, entryMs(x.e)) / 3600000, 0);
+      const jobs = new Map();
+      d.loads.forEach(r => { const j = r.jobId || r.id; (jobs.get(j) || jobs.set(j, []).get(j)).push(r); });
+      const jobHtml = Array.from(jobs.values()).map(list => {
+        const h0 = list[0];
+        const tickets = {};
+        list.forEach(r => { if (r.ticketNo) tickets[r.ticketNo] = (tickets[r.ticketNo] || 0) + 1; });
+        const tk = Object.keys(tickets);
+        const trucksUsed = Array.from(new Set(list.map(r => r.truck).filter(Boolean)));
+        return '<div class="job"><div class="jn">' + esc(h0.customer || "Untitled job") + (h0.material ? ' — ' + esc(h0.material) : '') + '</div>' +
+          '<div class="jd"><span class="mono">' + list.length + '</span> load' + (list.length === 1 ? '' : 's') + ' ' + esc(ranges(list.map(r => r.loadNum || 1))) +
+          (amt(list) ? ' · <span class="mono">' + esc(amt(list)) + '</span>' : '') +
+          (trucksUsed.length ? ' · ' + esc(trucksUsed.map(truckLbl).join(", ")) : '') +
+          (tk.length ? '<br>Ticket' + (tk.length === 1 ? ' ' : 's ') + tk.map(t => esc(t) + (tickets[t] > 1 ? ' (' + tickets[t] + ' loads)' : '')).join(", ") : '') +
+          (list.some(r => !r.ticketNo) && tk.length ? '<br><b style="color:var(--orange-dark)">' + list.filter(r => !r.ticketNo).length + ' not on a ticket</b>' : '') +
+          '</div></div>';
+      }).join("");
+      const hourJobs = new Map();
+      d.time.forEach(x => { (hourJobs.get(x.job.id) || hourJobs.set(x.job.id, {job: x.job, es: []}).get(x.job.id)).es.push(x.e); });
+      const hourHtml = Array.from(hourJobs.values()).map(({job, es}) => {
+        es.sort((a,b) => a.start.localeCompare(b.start));
+        const hh = es.reduce((s,e) => s + Math.max(0, entryMs(e)) / 3600000, 0);
+        return '<div class="job"><div class="jn">' + esc(job.customer || "Hourly job") + ' — Hourly</div><div class="jd">' +
+          es.map(e => esc(fmtTime(e.start)) + '–' + (e.end ? esc(fmtTime(e.end)) : '<b>now</b>') + (e.truck ? ' · ' + esc(truckLbl(e.truck)) : '')).join("<br>") +
+          '<br><span class="mono">' + fmtHrs(hh) + '</span> hrs</div></div>';
+      }).join("");
+      return '<div class="dcard"><div class="dname">' + esc(name) + '</div>' +
+        '<div class="dnow">' + (last ? 'Last: <b>' + esc(last.kind === "load" ? "load" : last.kind) + '</b> at ' + esc(fmtTime(last.at)) + ' · ' + esc(last.job || "") + (last.truck ? ' · <b>' + esc(truckLbl(last.truck)) + '</b>' : '') : '') + '</div>' +
+        (running ? '<span class="onclock">On the clock · ' + esc(running.job.customer || "") + ' since ' + esc(fmtTime(running.e.start)) + '</span>' : '') +
+        '<div class="dtot"><div><div class="n">' + d.loads.length + '</div><div class="l">Loads</div></div>' +
+          (amt(d.loads) ? '<div><div class="n" style="font-size:18px; padding-top:8px;">' + esc(amt(d.loads)) + '</div><div class="l">Hauled</div></div>' : '') +
+          (h ? '<div><div class="n">' + fmtHrs(h) + '</div><div class="l">Hours</div></div>' : '') + '</div>' +
+        jobHtml + hourHtml + '</div>';
+    }).join("");
+  }
+
+  // ---- table ----
+  const rows = L.map(r => ({at: r.deliveredAt || "", driver: r.driverName || r.driverEmail, truck: r.truck, job: r.customer, mat: r.material,
+      what: "Load #" + (r.loadNum || 1), amount: r.qty ? r.qty + " " + unitOf(r) : "", ticket: r.ticketNo || "", via: r.via}))
+    .concat(T.map(x => ({at: x.e.start, driver: x.job.driverName || x.job.driverEmail, truck: x.e.truck, job: x.job.customer, mat: x.job.material,
+      what: x.e.end ? fmtTime(x.e.start) + "–" + fmtTime(x.e.end) : "On clock since " + fmtTime(x.e.start),
+      amount: fmtHrs(Math.max(0, entryMs(x.e)) / 3600000) + " h", ticket: "", via: "", time: true, running: !x.e.end})))
+    .sort((a,b) => (b.at || "").localeCompare(a.at || ""));
+  $("tbl").innerHTML = '<tr><th>Time</th><th>Driver</th><th>Truck</th><th>Job</th><th>Material</th><th></th><th style="text-align:right">Amount</th><th>Ticket</th><th></th></tr>' +
+    (rows.length ? rows.map(r => '<tr><td class="mono">' + esc(fmtTime(r.at)) + '</td><td>' + esc(r.driver) + '</td><td>' + esc(truckLbl(r.truck)) + '</td><td>' + esc(r.job) +
+      '</td><td>' + esc(r.mat) + '</td><td>' + esc(r.what) + '</td><td class="num">' + esc(r.amount) + '</td><td class="mono">' + esc(r.ticket) + '</td><td>' +
+      (r.time ? '<span class="pill ' + (r.running ? 'r' : 't') + '">' + (r.running ? 'On clock' : 'Time') + '</span>' : r.via ? '<span class="pill a">Auto</span>' : '') + '</td></tr>').join("")
+      : '<tr><td colspan="9" style="color:var(--muted); padding:16px;">Nothing yet.</td></tr>');
+  render.rows = rows;
+}
+function fillSelect(sel, allLabel, opts){
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">' + allLabel + '</option>' + opts.map(([v, n]) => '<option value="' + esc(v) + '">' + esc(n) + '</option>').join("");
+  if (opts.some(([v]) => v === cur)) sel.value = cur;
+}
+
+// ---------- CSV ----------
+function csvCell(v){ v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+function stamp(iso){ if (!iso) return ""; const d = new Date(iso); return localDay(d) + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0"); }
+$("csvBtn").addEventListener("click", () => {
+  const {day, L, T} = dayData();
+  const head = ["Date","Driver","Driver email","Truck","Job / Customer","Type","Load #","Material","Amount","Unit","Ticket #","Hauled at","Clock in","Clock out","Hours","Pickup","Drop-off","Auto-counted","Notes"];
+  const rows = L.map(r => [day, r.driverName, r.driverEmail, r.truck, r.customer, "Load", r.loadNum || 1, r.material, r.qty, r.qty ? (unitOf(r) === "yd" ? "yd" : "tons") : "",
+      r.ticketNo, stamp(r.deliveredAt), "", "", "", r.pickup && r.pickup.address, r.dropoff && r.dropoff.address, r.via === "gps" ? "GPS" : r.via === "link" ? "Link" : "", r.notes])
+    .concat(T.map(x => [day, x.job.driverName, x.job.driverEmail, x.e.truck, x.job.customer, "Time", "", x.job.material, "", "", "", "", stamp(x.e.start), stamp(x.e.end),
+      x.e.end ? fmtHrs(entryMs(x.e) / 3600000) : "", x.job.pickup && x.job.pickup.address, x.job.dropoff && x.job.dropoff.address, "", x.job.notes]));
+  if (!rows.length){ toast("Nothing to export for this day"); return; }
+  const csv = "﻿" + [head].concat(rows).map(r => r.map(csvCell).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv;charset=utf-8"}));
+  a.download = "loadsheet-office-" + day + ".csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  toast(rows.length + " rows exported");
+});
+
+// ---------- crew list ----------
+function renderCrew(){
+  $("crewRows").innerHTML = crew.length ? crew.sort((a,b) => a.email.localeCompare(b.email)).map(m =>
+    '<div class="crew-row"><span class="em">' + esc(m.email) + (m.name ? ' <span style="color:#9c8f7c">· ' + esc(m.name) + '</span>' : '') + '</span>' +
+    '<select data-email="' + esc(m.email) + '"' + (m.email === me.email ? ' disabled title="You can\'t change your own role"' : '') + '>' +
+      ["driver","office","admin"].map(r => '<option value="' + r + '"' + (m.role === r ? ' selected' : '') + '>' + r[0].toUpperCase() + r.slice(1) + '</option>').join("") + '</select>' +
+    (m.email === me.email ? '' : '<button class="btn" data-rm="' + esc(m.email) + '">Remove</button>') + '</div>').join("")
+    : '<div class="hint">No one yet.</div>';
+}
+$("crewRows").addEventListener("change", e => {
+  const s = e.target.closest("select[data-email]"); if (!s) return;
+  backend.setMember(s.dataset.email, {role: s.value}).then(() => toast("Updated " + s.dataset.email)).catch(err => toast("Couldn't update: " + (err.code || err)));
+});
+$("crewRows").addEventListener("click", e => {
+  const b = e.target.closest("[data-rm]"); if (!b) return;
+  if (!confirm("Remove " + b.dataset.rm + " from the crew? They'll stop syncing. Their past loads stay.")) return;
+  backend.removeMember(b.dataset.rm).then(() => toast("Removed " + b.dataset.rm)).catch(err => toast("Couldn't remove: " + (err.code || err)));
+});
+$("addMember").addEventListener("click", () => {
+  const email = $("newEmail").value.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ toast("Enter a full email address"); $("newEmail").focus(); return; }
+  backend.setMember(email, {role: $("newRole").value}).then(() => { $("newEmail").value = ""; toast("Added " + email + ". They can sign in now."); })
+    .catch(err => toast("Couldn't add: " + (err.code || err)));
+});
+
+// ---------- controls ----------
+["fDriver","fTruck"].forEach(id => $(id).addEventListener("change", render));
+$("day").addEventListener("change", render);
+$("prevDay").addEventListener("click", () => { $("day").value = shiftDay($("day").value || localDay(), -1); render(); });
+$("nextDay").addEventListener("click", () => { $("day").value = shiftDay($("day").value || localDay(), 1); render(); });
+$("todayBtn").addEventListener("click", () => { $("day").value = localDay(); render(); });
+setInterval(() => { if (records.size) render(); }, 60000);   // keep running clocks current
+
+function live(txt, cls){ const l = $("live"); l.textContent = txt; l.className = "live " + (cls || ""); }
+function gate(text, showSignIn){
+  $("gate").style.display = ""; $("app").style.display = "none"; $("controls").style.display = "none";
+  $("gateText").innerHTML = text; $("signInBtn").style.display = showSignIn ? "" : "none";
+}
+
+async function start(){
+  if (!firebaseConfig){ gate("Crew sync isn't set up yet. Add the Firebase settings to <code>config.js</code>.", false); live("Not set up", "warn"); return; }
+  const { createBackend } = await import("./backend-firebase.js");
+  backend = await createBackend(firebaseConfig, ORG);
+  $("signInBtn").addEventListener("click", () => backend.signIn().catch(e => toast("Sign-in didn't finish: " + (e.code || e))));
+  $("signOutBtn").addEventListener("click", () => backend.signOut());
+  window.addEventListener("online", () => live("Live", "ok"));
+  window.addEventListener("offline", () => live("Offline · showing last data", "warn"));
+  backend.onAuth(async u => {
+    if (unsubAll){ unsubAll(); unsubAll = null; }
+    if (unsubCrew){ unsubCrew(); unsubCrew = null; }
+    records = new Map(); me = u; role = null;
+    $("signOutBtn").style.display = u ? "" : "none";
+    if (!u){ gate("Sign in with the Google account the admin added to the crew list as Office or Admin.", true); live("Signed out", "warn"); return; }
+    gate("Checking access for " + esc(u.email) + "…", false);
+    let m = null;
+    try {
+      m = await backend.getMember(u.email);
+      if (!m){ try { await backend.setMember(u.email, {role: "admin", name: u.name}); m = {role: "admin"}; } catch(e){} }
+    } catch (e) {}
+    role = m && m.role;
+    if (role !== "office" && role !== "admin"){
+      gate(esc(u.email) + (m ? " is on the crew as a driver." : " isn't on the crew list.") + " The office view needs an Office or Admin role. Ask an admin to change it.", false);
+      live("No access", "warn"); return;
+    }
+    $("gate").style.display = "none"; $("app").style.display = ""; $("controls").style.display = "";
+    $("crewSec").style.display = role === "admin" ? "" : "none";
+    live(navigator.onLine ? "Live" : "Offline · showing last data", navigator.onLine ? "ok" : "warn");
+    unsubAll = backend.watchAll(snap => {
+      snap.changes.forEach(ch => { if (ch.type === "removed") records.delete(ch.id); else records.set(ch.id, Object.assign({id: ch.id}, ch.data)); });
+      render();
+    }, err => { live("Error: " + (err.code || err), "warn"); });
+    if (role === "admin") unsubCrew = backend.watchMembers(list => { crew = list; renderCrew(); }, () => {});
+    render();
+  });
+}
+start().catch(e => { console.error(e); gate("Couldn't start: " + esc(e.message || e), false); });
+</script>
+</body>
+</html>

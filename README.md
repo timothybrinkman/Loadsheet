@@ -8,7 +8,13 @@ Track loads, tickets and hours from the truck. Installs to the home screen on iP
 - **Auto-count:** pin a job's drop-off or pickup; Auto mode counts a load each time you pull in (app open on screen), or use the job's auto-add link with a background geofence app like MacroDroid (`?add=<job>`, hourly: `?start=` / `?stop=`)
 - **End-of-day report** to text or email the office, **CSV export** for Excel, **backup/restore**
 
-All data stays on the device (browser storage). Nothing is uploaded.
+Data lives on the device. With **crew sync** turned on (Firebase, Google sign-in), each driver's loads also sync to a shared database: they save offline and upload when the truck gets signal, and the **office page** (`office.html`) shows every driver and truck live.
+
+## Crew sync setup
+1. Create a Firebase project; enable Google sign-in; add this site's domain under Authentication → Authorized domains; create a Firestore database.
+2. Put the web app config in `config.js`.
+3. Paste `firestore.rules` into Firestore → Rules, with `OWNER_EMAIL` replaced by the owner's Google email.
+4. The owner signs in first (becomes admin), then adds drivers on the office page's crew list.
 
 ## Install
 - **Android (Chrome):** open the link → ⋮ menu → **Install app** (or *Add to Home screen*)
