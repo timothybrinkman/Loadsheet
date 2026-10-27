@@ -1,5 +1,5 @@
 // Load Sheet offline worker. Bump VERSION on every release.
-const VERSION = "2026.10.20-3";
+const VERSION = "2026.10.26-1";
 const CACHE = "loadsheet-" + VERSION;
 const SHELL = ["./", "index.html", "office.html", "cloud.js", "config.js", "backend-firebase.js", "vendor/firebase.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png"];
@@ -17,8 +17,10 @@ self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
   e.respondWith(caches.open(CACHE).then(async cache => {
-    const key = req.mode === "navigate" ? "index.html" : req;
-    const cached = await cache.match(key, { ignoreSearch: true });
+    // each page is cached under its own address (index.html, office.html); ?add=… links reuse the cached page
+    const key = req;
+    const cached = (await cache.match(key, { ignoreSearch: true })) ||
+      (req.mode === "navigate" && new URL(req.url).pathname.endsWith("/") ? await cache.match("index.html") : undefined);
     const fresh = fetch(req).then(res => {
       if (res && res.ok) cache.put(key, res.clone());
       return res;
