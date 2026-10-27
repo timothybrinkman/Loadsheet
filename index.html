@@ -463,7 +463,7 @@
     <div class="field">
       <label>Pickup — address or paste map link</label>
       <div class="pin-row">
-        <input type="text" id="f_pickupInput" placeholder="Paste Google/Apple Maps link or type address">
+        <input type="text" id="f_pickupInput" placeholder="Address, map link, or pin numbers like 41.43, -97.36">
         <button type="button" class="pin-btn" id="pinPickup">📍 Pin here</button>
       </div>
       <div class="map-hint" id="pickupHint"></div>
@@ -472,7 +472,7 @@
     <div class="field">
       <label>Drop-off — address or paste map link</label>
       <div class="pin-row">
-        <input type="text" id="f_dropoffInput" placeholder="Paste Google/Apple Maps link or type address">
+        <input type="text" id="f_dropoffInput" placeholder="Address, map link, or pin numbers like 41.43, -97.36">
         <button type="button" class="pin-btn" id="pinDropoff">📍 Pin here</button>
       </div>
       <div class="map-hint" id="dropoffHint"></div>
@@ -758,7 +758,7 @@
         <h3>Backup</h3>
         <p>Without crew sync, your loads live only on this device: clearing the browser's site data or uninstalling the app erases them. A backup file saves everything; keep it in Files/Downloads or email it to yourself. It can also move loads between devices.</p>
         <p>Last backup: <span class="backup-status" id="backupStatus">never</span></p>
-        <p style="margin-top:6px; font-size:11px;">App version 2026.10.26-1</p>
+        <p style="margin-top:6px; font-size:11px;">App version 2026.10.26-2</p>
         <div class="btn-row">
           <button class="go" id="backupBtn">Save backup</button>
           <label class="icon-btn" for="restoreFile" style="flex:1; justify-content:center; text-transform:uppercase; font-size:12px; font-weight:800; letter-spacing:0.03em;">Restore backup</label>
@@ -827,39 +827,58 @@
   }
 
   // ---------- map link parsing ----------
+  // Turns whatever was pasted into {address, link, lat, lng}. Understands:
+  //   41.43000, -97.36000        (Google Maps dropped-pin coordinates)
+  //   41°25'48.0"N 97°21'36.0"W  (degrees/minutes/seconds, as Maps shows on a computer)
+  //   full Google / Apple Maps links (…/@lat,lng…, !3d…!4d…, ?q= ?query= ?ll= ?destination=)
+  //   geo:lat,lng  and share text that contains one of the above
+  function validLL(lat, lng){ return isFinite(lat) && isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0); }
+  function coordsIn(text){
+    let t = text;
+    try{ t = decodeURIComponent(text); }catch(e){}
+    t = t.replace(/\+/g, " ");
+    let m;
+    // exact place marker in long Google links beats the map's viewport center
+    if((m = t.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/))) return [parseFloat(m[1]), parseFloat(m[2])];
+    if((m = t.match(/[?&](?:q|query|ll|sll|destination|daddr|center|saddr)=(?:loc:)?\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/i))) return [parseFloat(m[1]), parseFloat(m[2])];
+    if((m = t.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/))) return [parseFloat(m[1]), parseFloat(m[2])];
+    if((m = t.match(/geo:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i))) return [parseFloat(m[1]), parseFloat(m[2])];
+    // degrees / minutes / seconds
+    const dms = /(\d{1,3})\s*°\s*(\d{1,2})\s*['′]\s*(\d{1,2}(?:\.\d+)?)\s*(?:["″]|'')?\s*([NS])[\s,]+(\d{1,3})\s*°\s*(\d{1,2})\s*['′]\s*(\d{1,2}(?:\.\d+)?)\s*(?:["″]|'')?\s*([EW])/i;
+    if((m = t.match(dms))){
+      const a = (+m[1] + m[2]/60 + m[3]/3600) * (/s/i.test(m[4]) ? -1 : 1);
+      const b = (+m[5] + m[6]/60 + m[7]/3600) * (/w/i.test(m[8]) ? -1 : 1);
+      return [a, b];
+    }
+    // plain decimal pair (needs decimals so street numbers aren't mistaken for coordinates)
+    if((m = t.match(/(^|[^\d.])(-?\d{1,2}\.\d{3,})\s*[, ]\s*(-?\d{1,3}\.\d{3,})(?![\d.])/))) return [parseFloat(m[2]), parseFloat(m[3])];
+    return null;
+  }
   function parseMapLink(raw){
-    if(!raw) return {address:"", link:"", lat:null, lng:null};
+    if(!raw || !raw.trim()) return {address:"", link:"", lat:null, lng:null};
     const text = raw.trim();
-    const isUrl = /^https?:\/\//i.test(text);
-    if(!isUrl){
-      return {address:text, link:"", lat:null, lng:null};
+    const urlMatch = text.match(/(https?:\/\/\S+|geo:\S+)/i);
+    const link = urlMatch ? urlMatch[1].replace(/[)\].,]+$/, "") : "";
+    const c = coordsIn(link || text) || (link ? coordsIn(text) : null);
+    const lat = c && validLL(c[0], c[1]) ? Math.round(c[0] * 1e6) / 1e6 : null;
+    const lng = lat !== null ? Math.round(c[1] * 1e6) / 1e6 : null;
+    const short = !!link && /(maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs)/i.test(link) && lat === null;
+    if(!link && lat === null) return {address:text, link:"", lat:null, lng:null};
+    let address = "";
+    if(link){
+      let q = link.match(/[?&](?:q|query|destination|daddr)=([^&]+)/i);
+      if(q){ try{ const v = decodeURIComponent(q[1].replace(/\+/g, " ")); if(!coordsIn(v) && !/^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$/.test(v)) address = v; }catch(e){} }
+      const place = link.match(/\/place\/([^\/@?]+)/);
+      if(!address && place){ try{ address = decodeURIComponent(place[1].replace(/\+/g, " ")); }catch(e){} }
+      // share text like "Dropped pin\nNear 1820 23rd St https://maps.app.goo.gl/…"
+      if(!address){
+        const rest = text.replace(urlMatch[1], "").replace(/dropped pin/i, "").replace(/^\s*near\s+/im, "").replace(/\s+/g, " ").trim();
+        if(rest && !coordsIn(rest) && rest.length < 80) address = rest;
+      }
     }
-    let lat=null, lng=null, address="";
-    let m = text.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-    if(m){ lat=parseFloat(m[1]); lng=parseFloat(m[2]); }
-    if(!lat){
-      m = text.match(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/);
-      if(m){ lat=parseFloat(m[1]); lng=parseFloat(m[2]); }
-    }
-    if(!lat){
-      m = text.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-      if(m){ lat=parseFloat(m[1]); lng=parseFloat(m[2]); }
-    }
-    let q = text.match(/[?&]q=([^&]+)/);
-    if(q && !/^-?\d+\.\d+,-?\d+\.\d+$/.test(decodeURIComponent(q[1]))){
-      address = decodeURIComponent(q[1].replace(/\+/g," "));
-    }
-    let place = text.match(/\/place\/([^\/@]+)/);
-    if(place && !address){
-      address = decodeURIComponent(place[1].replace(/\+/g," "));
-    }
-    if(!address && lat && lng){
-      address = lat.toFixed(5) + ", " + lng.toFixed(5);
-    }
-    if(!address){
-      address = "Map link";
-    }
-    return {address, link:text, lat, lng};
+    if(!address && lat !== null) address = "Pin " + lat.toFixed(5) + ", " + lng.toFixed(5);
+    if(!address) address = "Map link";
+    return {address: address, link: link, lat: lat, lng: lng, short: short};
   }
 
   // ---------- CRUD ----------
@@ -1738,14 +1757,19 @@
       const parsed = parseMapLink(input.value);
       const prev = which === "pickup" ? pickupStore : dropoffStore;
       // renaming a GPS-pinned spot keeps the pin
-      if(!parsed.link && prev && prev.lat && !prev.link && input.value.trim()){
-        prev.address = parsed.address || "Pinned spot";
+      // typing a name over a pinned spot renames it and keeps the GPS point
+      if(!parsed.link && parsed.lat === null && prev && prev.lat && input.value.trim()){
+        prev.address = parsed.address;
+        hint.textContent = "📍 GPS pin kept, renamed. Clear the box to remove the pin.";
         return;
       }
       if(which === "pickup") pickupStore = parsed; else dropoffStore = parsed;
-      hint.textContent = parsed.link
-        ? (parsed.lat ? "📍 Map link → " + parsed.address + " (GPS point found)"
-           : "Map link saved, but it has no GPS point (short share links don't). For auto-count, tap 📍 Pin here at the spot.")
+      hint.textContent = parsed.lat !== null
+        ? "📍 GPS point " + parsed.lat.toFixed(5) + ", " + parsed.lng.toFixed(5) + " (ready for auto-count). Type a name over it if you like; the pin stays."
+        : parsed.short
+        ? "Short share links don't include the spot. In Google Maps, press and hold the spot to drop a pin, copy the numbers shown (like 41.43000, -97.36000), and paste them here. Or tap 📍 Pin here when you're there."
+        : parsed.link
+        ? "Map link saved, but no GPS point in it. For auto-count, paste the pin's numbers or tap 📍 Pin here."
         : "";
       if(typeof renderAutoSeg === "function") renderAutoSeg();
     }
@@ -2576,7 +2600,7 @@
       }).catch(function(){});
     });
   }
-  window.LOADSHEET_VERSION = "2026.10.26-1";
+  window.LOADSHEET_VERSION = "2026.10.26-2";
 })();
 </script>
 <script type="module" src="cloud.js"></script>
