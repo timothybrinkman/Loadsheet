@@ -3,7 +3,9 @@
 // to the crew database and pulls changes made on the driver's other devices.
 //   records  - loads and hourly jobs
 //   hitches  - trailer hook / drop events
+//   usage    - equipment hours (machine, job, hour meter, problems for the shop)
 //   trailers - the crew's shared trailer list (read here, managed on the office page)
+//   equipment- the crew's machine list (read here, managed on the office page)
 // - Local change  -> stamp updatedAt/driver, upload what changed, delete what was removed
 // - Remote change -> newer updatedAt wins; deletes made on another device are applied here
 // - No signal     -> Firestore queues the writes on the device and sends them when service comes back
@@ -15,7 +17,9 @@ const SETS = [
   { col: "records", mapKey: "loadsheet_synced_v1", label: "load record",
     get: () => App.getLoads(), set: a => App.setLoads(a), quiet: () => App.persistQuiet() },
   { col: "hitches", mapKey: "loadsheet_synced_hitches_v1", label: "trailer hookup",
-    get: () => App.getHitches(), set: a => App.setHitches(a), quiet: () => App.persistHitchesQuiet() }
+    get: () => App.getHitches(), set: a => App.setHitches(a), quiet: () => App.persistHitchesQuiet() },
+  { col: "usage", mapKey: "loadsheet_synced_usage_v1", label: "equipment entry",
+    get: () => App.getUsage(), set: a => App.setUsage(a), quiet: () => App.persistUsageQuiet() }
 ];
 
 let backend = null, user = null, member = null, unsubs = [];
@@ -118,6 +122,12 @@ function addTrailer(t) {
   return true;
 }
 
+// operators may only raise a machine's meter reading (the rules enforce it); failures don't block sync
+function bumpMeter(id, meter) {
+  if (state !== "on") return;
+  backend.merge("equipment", id, { lastMeter: meter, lastMeterAt: new Date().toISOString(), lastMeterBy: user.email }).catch(() => {});
+}
+
 // ---------- sign-in / devices shared between drivers ----------
 function stopWatching() { unsubs.forEach(u => { try { u(); } catch (e) {} }); unsubs = []; SETS.forEach(s => { s.ready = false; s.swept = false; }); }
 function clearDevice() {
@@ -160,6 +170,7 @@ async function handleUser(u) {
   const onErr = err => { lastErr = (err && err.code) || "error"; render(); };
   SETS.forEach(set => unsubs.push(backend.watchMine(set.col, u.uid, snap => onRemote(set, snap), onErr)));
   unsubs.push(backend.watchCol("trailers", list => App.setTrailers(list.filter(t => !t.retired)), () => {}));
+  unsubs.push(backend.watchCol("equipment", list => App.setEquipment(list), () => {}));
   // trailers added on this device while signed out join the crew list now
   App.getTrailers().filter(t => t.localOnly).forEach(t => { const c = Object.assign({}, t); delete c.localOnly; delete t.localOnly; addTrailer(c); });
   render();
@@ -218,7 +229,7 @@ async function start() {
   if (!firebaseConfig) return;                                  // not set up: device-only mode
   const { createBackend } = await import("./backend-firebase.js");
   backend = await createBackend(firebaseConfig, ORG);
-  window.LoadSheetCloud = { onLocalChange, signIn, signOut, addTrailer, isOn: () => state === "on",
+  window.LoadSheetCloud = { onLocalChange, signIn, signOut, addTrailer, bumpMeter, isOn: () => state === "on",
     status: () => ({ state, pending, ready: allReady(), lastErr, user, member }) };
   document.getElementById("cloudSignIn").addEventListener("click", () => state === "notmember" && user ? handleUser(user) : signIn());
   document.getElementById("cloudSignOut").addEventListener("click", signOut);

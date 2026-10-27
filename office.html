@@ -45,7 +45,18 @@
   main{padding:16px; max-width:1280px; margin:0 auto;}
   .day-title{font-size:13px; color:#9c8f7c; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; margin:2px 0 12px;}
 
-  .tiles{display:grid; grid-template-columns:repeat(8, minmax(0,1fr)); gap:8px; margin-bottom:18px;}
+  .tiles{display:grid; grid-template-columns:repeat(auto-fit, minmax(118px, 1fr)); gap:8px; margin-bottom:18px;}
+  .shop{background:var(--paper); color:var(--ink); border-radius:var(--radius); border-left:6px solid var(--cancelled); padding:6px 14px; margin-bottom:6px;}
+  .shop-row{display:flex; gap:12px; align-items:center; padding:9px 0; border-bottom:1px solid var(--paper-dim); font-size:13px; flex-wrap:wrap;}
+  .shop-row:last-child{border-bottom:0;}
+  .shop-row .w{flex:1; min-width:220px; line-height:1.45;}
+  .shop-row .btn{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .sev{font-size:10px; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; padding:3px 7px; border-radius:2px; color:#fff; background:var(--enroute);}
+  .sev.down{background:var(--cancelled);}
+  .svc{font-size:10px; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; padding:3px 7px; border-radius:2px; white-space:nowrap;}
+  .svc.ok{background:#dfeee4; color:#2b6845;} .svc.soon{background:#f6e5bf; color:#7a5300;} .svc.over{background:var(--cancelled); color:#fff;}
+  td .btn{padding:6px 9px; font-size:12px; background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .pill.e{background:#6b5b4f;}
   .pulling{display:inline-block; margin-top:6px; margin-right:6px; font-size:10px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:#3a2000; background:var(--enroute); padding:3px 7px; border-radius:2px;}
   .pill.h{background:var(--enroute); color:#1c1200;}
   .tile{background:var(--asphalt-2); border:1px solid var(--line-d); border-radius:var(--radius); padding:12px 10px;}
@@ -97,7 +108,7 @@
   .toast.show{transform:translate(-50%,0);}
 
   @media (max-width: 760px){
-    .tiles{grid-template-columns:repeat(4, minmax(0,1fr));}
+    .tiles{grid-template-columns:repeat(3, minmax(0,1fr));}
     .controls{gap:8px;}
     .controls select{flex:1; min-width:0;}
   }
@@ -143,15 +154,39 @@
       <div class="tile"><div class="n" id="tHours">0</div><div class="l">Hours</div></div>
       <div class="tile"><div class="n" id="tMiles">0</div><div class="l">Miles</div></div>
       <div class="tile"><div class="n" id="tHead">0</div><div class="l">Head</div></div>
+      <div class="tile"><div class="n" id="tMachine">0</div><div class="l">Machine hrs</div></div>
       <div class="tile g"><div class="n" id="tDrivers">0</div><div class="l">Drivers</div></div>
       <div class="tile g"><div class="n" id="tTrucks">0</div><div class="l">Trucks</div></div>
     </div>
 
-    <h2 class="sec">By driver</h2>
+    <div id="shopSec" style="display:none;">
+      <h2 class="sec" style="color:#e07a72;">Shop · open equipment problems</h2>
+      <div class="shop" id="shopRows"></div>
+    </div>
+
+    <h2 class="sec">By driver / operator</h2>
     <div class="board" id="board"></div>
 
     <h2 class="sec">Every load and clock entry</h2>
     <div class="tablewrap"><table id="tbl"></table></div>
+
+    <div id="equipSec" style="display:none;">
+      <h2 class="sec">Machines &amp; service</h2>
+      <div class="tablewrap"><table id="equipTbl"></table></div>
+      <div class="crew" style="margin-top:10px;">
+        <div class="crew-add" style="margin-top:0;">
+          <input type="text" id="eUnit" placeholder="Unit #" style="flex:0 0 90px; min-width:90px;">
+          <input type="text" id="eType" list="eTypes" placeholder="Type, e.g. Excavator" style="min-width:150px;">
+          <input type="text" id="eModel" placeholder="Make / model, e.g. CAT 320" style="min-width:150px;">
+          <input type="text" id="eMeter" inputmode="decimal" placeholder="Hour meter now" style="flex:0 0 140px; min-width:120px;">
+          <input type="text" id="eEvery" inputmode="numeric" placeholder="Service every (hrs)" style="flex:0 0 160px; min-width:140px;">
+          <input type="text" id="eLast" inputmode="decimal" placeholder="Last service at (hrs)" style="flex:0 0 170px; min-width:150px;">
+          <button class="btn go" id="addEquip">Add machine</button>
+        </div>
+        <datalist id="eTypes"><option>Excavator</option><option>Mini excavator</option><option>Dozer</option><option>Wheel loader</option><option>Skid steer</option><option>Compact track loader</option><option>Backhoe</option><option>Motor grader</option><option>Roller</option><option>Off-road truck</option><option>Water truck</option><option>Scraper</option></datalist>
+        <div class="hint">Operators pick from this list when they log hours, and their hour meter readings keep "Meter" current. Service comes due every interval after the last service; leave "Last service at" blank to count from the next round number (e.g. every 250: due at 4,750, 5,000…).</div>
+      </div>
+    </div>
 
     <div id="trailerSec" style="display:none;">
       <h2 class="sec">Trailer list</h2>
@@ -210,6 +245,16 @@ function commas(n){ return Number(n).toLocaleString("en-US", {maximumFractionDig
 function num(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
 function tripTxt(l){ const p = []; if (l.head) p.push(commas(l.head) + " hd"); if (l.weight) p.push(commas(l.weight) + " lb"); if (l.miles) p.push(commas(l.miles) + " mi"); return p.join(" · "); }
 function tripTotals(list){ const s = k => list.reduce((a, l) => a + num(l[k]), 0); return tripTxt({head: s("head") || "", weight: s("weight") || "", miles: s("miles") || ""}); }
+function eqLabel(e){ return [e.unit ? "Unit " + e.unit : "", e.model || "", e.type || ""].filter(Boolean).join(" · "); }
+function meterOf(e){ let m = num(e.lastMeter); for (const u of usage.values()) if (u.equipId === e.id && num(u.meterEnd) > m) m = num(u.meterEnd); return m; }
+function serviceInfo(e){
+  const every = num(e.serviceEvery), last = num(e.lastService), now = meterOf(e);
+  if (!every || !now) return null;
+  const due = last ? last + every : Math.ceil(now / every) * every;
+  const left = Math.round((due - now) * 10) / 10;
+  return {due, left, cls: left <= 0 ? "over" : left <= Math.max(25, every * 0.1) ? "soon" : "ok",
+    txt: left <= 0 ? "Overdue " + commas(-left) + " hrs" : left <= Math.max(25, every * 0.1) ? "Due in " + commas(left) + " hrs" : commas(left) + " hrs left"};
+}
 function hitchLabel(h){ return (h.trailerType || "Trailer") + (h.trailerName ? " · " + h.trailerName : ""); }
 function hitchMiles(h){ const a = parseFloat(h.hookOdo), b = parseFloat(h.dropOdo); return !isNaN(a) && !isNaN(b) && b > a && b - a < 3000 ? Math.round((b - a) * 10) / 10 : 0; }
 function mapLink(lat, lng){ return lat ? '<a href="https://maps.google.com/?q=' + lat + ',' + lng + '" target="_blank" rel="noopener">map</a>' : ''; }
@@ -220,7 +265,7 @@ function ranges(nums){
   return out.join(", ");
 }
 
-let backend, me = null, role = null, records = new Map(), hitches = new Map(), trailerList = [], unsubs = [], crew = [];
+let backend, me = null, role = null, records = new Map(), hitches = new Map(), usage = new Map(), trailerList = [], equipList = [], unsubs = [], crew = [];
 $("day").value = localDay();
 
 // ---------- what happened on the chosen day ----------
@@ -241,11 +286,13 @@ function dayData(){
   const L = loadsDay.filter(r => (!fD || drv(r) === fD) && (!fT || (r.truck || "") === fT));
   const T = timeDay.filter(x => (!fD || drv(x.job) === fD) && (!fT || (x.e.truck || "") === fT));
   const H = hitchDay.filter(h => (!fD || drv(h) === fD) && (!fT || (h.truck || "") === fT));
-  return {day, L, T, H, allL: loadsDay, allT: timeDay, allH: hitchDay, drv};
+  const usageDay = Array.from(usage.values()).filter(u => u.date === day);
+  const U = usageDay.filter(u => (!fD || drv(u) === fD));
+  return {day, L, T, H, U, allL: loadsDay, allT: timeDay, allH: hitchDay, allU: usageDay, drv};
 }
 
 function render(){
-  const {day, L, T, H, allL, allT, allH, drv} = dayData();
+  const {day, L, T, H, U, allL, allT, allH, allU, drv} = dayData();
   $("dayTitle").textContent = longDay(day) + (day === localDay() ? " · today, live" : "");
 
   // filter choices come from the whole day
@@ -253,11 +300,13 @@ function render(){
   allL.forEach(r => { drivers.set(drv(r), r.driverName || r.driverEmail || "Driver"); if (r.truck) trucks.add(r.truck); });
   allT.forEach(x => { drivers.set(drv(x.job), x.job.driverName || x.job.driverEmail || "Driver"); if (x.e.truck) trucks.add(x.e.truck); });
   allH.forEach(h => { drivers.set(drv(h), h.driverName || h.driverEmail || "Driver"); if (h.truck) trucks.add(h.truck); });
+  allU.forEach(u => drivers.set(drv(u), u.driverName || u.driverEmail || "Operator"));
   fillSelect($("fDriver"), "All drivers", Array.from(drivers, ([v, n]) => [v, n]));
   fillSelect($("fTruck"), "All trucks", Array.from(trucks).sort((a,b) => a.localeCompare(b, undefined, {numeric:true})).map(t => [t, truckLbl(t)]));
 
   const hrs = T.reduce((h,x) => h + Math.max(0, entryMs(x.e)) / 3600000, 0);
-  const dset = new Set(L.map(drv).concat(T.map(x => drv(x.job))));
+  const dset = new Set(L.map(drv).concat(T.map(x => drv(x.job))).concat(U.map(drv)).concat(H.map(drv)));
+  $("tMachine").textContent = fmtHrs(U.reduce((a, u) => a + num(u.hours), 0));
   const tset = new Set(L.map(r => r.truck).concat(T.map(x => x.e.truck)).filter(Boolean));
   $("tLoads").textContent = L.length;
   $("tTons").textContent = fmtNum(sumUnit(L, "t"));
@@ -278,13 +327,18 @@ function render(){
   L.forEach(r => slot(drv(r)).loads.push(r));
   T.forEach(x => slot(drv(x.job)).time.push(x));
   H.forEach(h => slot2(drv(h)).hitches.push(h));
+  U.forEach(u => { const d = slot(drv(u)); (d.usage = d.usage || []).push(u); });
   const board = $("board");
   if (!byDriver.size){
     board.innerHTML = '<div class="empty">Nothing logged ' + (day === localDay() ? "yet today" : "on this day") + '. Loads show up here within seconds of a driver logging them (or when their truck gets signal).</div>';
   } else {
     board.innerHTML = Array.from(byDriver.entries()).map(([k, d]) => {
-      d.hitches = d.hitches || [];
-      const name = (d.loads[0] && d.loads[0].driverName) || (d.time[0] && d.time[0].job.driverName) || (d.hitches[0] && d.hitches[0].driverName) || k;
+      d.hitches = d.hitches || []; d.usage = d.usage || [];
+      const name = (d.loads[0] && d.loads[0].driverName) || (d.time[0] && d.time[0].job.driverName) || (d.hitches[0] && d.hitches[0].driverName) || (d.usage[0] && d.usage[0].driverName) || k;
+      const eh = d.usage.reduce((a, u) => a + num(u.hours), 0);
+      const usageHtml = d.usage.length ? '<div class="job"><div class="jn">Equipment</div><div class="jd">' +
+        d.usage.map(u => esc(u.equipLabel || "Machine") + (u.job ? ' · ' + esc(u.job) : '') + (num(u.hours) ? ' · <span class="mono">' + fmtHrs(num(u.hours)) + '</span> h' : '') +
+          (u.problem ? '<br><span class="sev' + (u.problemSev === "down" ? ' down' : '') + '">' + (u.problemStatus === "fixed" ? "fixed" : u.problemSev === "down" ? "down" : "problem") + '</span> ' + esc(u.problem) : '')).join('<br>') + '</div></div>' : '';
       const pulling = d.hitches.filter(h => !h.dropAt);
       const events = d.loads.map(r => ({at: r.deliveredAt || r.updatedAt, truck: r.truck, job: r.customer, kind: "load"}))
         .concat(d.time.map(x => ({at: x.e.end || x.e.start, truck: x.e.truck, job: x.job.customer, kind: x.e.end ? "clock out" : "clocked in"})))
@@ -332,14 +386,17 @@ function render(){
         (running ? '<span class="onclock">On the clock · ' + esc(running.job.customer || "") + ' since ' + esc(fmtTime(running.e.start)) + '</span>' : '') +
         '<div class="dtot"><div><div class="n">' + d.loads.length + '</div><div class="l">Loads</div></div>' +
           (amt(d.loads) ? '<div><div class="n" style="font-size:18px; padding-top:8px;">' + esc(amt(d.loads)) + '</div><div class="l">Hauled</div></div>' : '') +
-          (h ? '<div><div class="n">' + fmtHrs(h) + '</div><div class="l">Hours</div></div>' : '') + '</div>' +
-        jobHtml + hourHtml + hitchHtml + '</div>';
+          (h ? '<div><div class="n">' + fmtHrs(h) + '</div><div class="l">Hours</div></div>' : '') +
+          (eh ? '<div><div class="n">' + fmtHrs(eh) + '</div><div class="l">Machine hrs</div></div>' : '') + '</div>' +
+        jobHtml + hourHtml + usageHtml + hitchHtml + '</div>';
     }).join("");
   }
 
   // ---- table ----
   const rows = L.map(r => ({at: r.deliveredAt || "", driver: r.driverName || r.driverEmail, truck: r.truck, trailer: r.trailer, job: r.customer, mat: r.material,
       what: "Load #" + (r.loadNum || 1), amount: r.billing === "trip" ? tripTxt(r) : r.qty ? r.qty + " " + unitOf(r) : "", ticket: r.ticketNo || "", via: r.via}))
+    .concat(U.map(u => ({at: u.createdAt || u.updatedAt || "", driver: u.driverName || u.driverEmail, truck: "", trailer: "", job: u.job, mat: u.equipLabel,
+      what: (u.meterStart || u.meterEnd) ? "Meter " + commas(u.meterStart || 0) + "–" + commas(u.meterEnd || 0) : "Equipment", amount: num(u.hours) ? fmtHrs(num(u.hours)) + " h" : "", ticket: "", equip: true, down: u.problem && u.problemStatus !== "fixed" && u.problemSev === "down"})))
     .concat(H.map(h => ({at: h.hookAt, driver: h.driverName || h.driverEmail, truck: h.truck, trailer: hitchLabel(h), job: "", mat: "",
       what: "Hooked " + fmtTime(h.hookAt) + (h.dropAt ? " · dropped " + fmtTime(h.dropAt) : ""), amount: hitchMiles(h) ? hitchMiles(h) + " mi" : "", ticket: "", hitch: true, running: !h.dropAt})))
     .concat(T.map(x => ({at: x.e.start, driver: x.job.driverName || x.job.driverEmail, truck: x.e.truck, trailer: x.e.trailer, job: x.job.customer, mat: x.job.material,
@@ -349,7 +406,7 @@ function render(){
   $("tbl").innerHTML = '<tr><th>Time</th><th>Driver</th><th>Truck</th><th>Trailer</th><th>Job</th><th>Material</th><th></th><th style="text-align:right">Amount</th><th>Ticket</th><th></th></tr>' +
     (rows.length ? rows.map(r => '<tr><td class="mono">' + esc(fmtTime(r.at)) + '</td><td>' + esc(r.driver) + '</td><td>' + esc(truckLbl(r.truck)) + '</td><td>' + esc(r.trailer || "") + '</td><td>' + esc(r.job) +
       '</td><td>' + esc(r.mat) + '</td><td>' + esc(r.what) + '</td><td class="num">' + esc(r.amount) + '</td><td class="mono">' + esc(r.ticket) + '</td><td>' +
-      (r.hitch ? '<span class="pill h">' + (r.running ? 'Hooked' : 'Trailer') + '</span>' : r.time ? '<span class="pill ' + (r.running ? 'r' : 't') + '">' + (r.running ? 'On clock' : 'Time') + '</span>' : r.via ? '<span class="pill a">Auto</span>' : '') + '</td></tr>').join("")
+      (r.equip ? '<span class="pill ' + (r.down ? 'r' : 'e') + '">' + (r.down ? 'Down' : 'Equip') + '</span>' : r.hitch ? '<span class="pill h">' + (r.running ? 'Hooked' : 'Trailer') + '</span>' : r.time ? '<span class="pill ' + (r.running ? 'r' : 't') + '">' + (r.running ? 'On clock' : 'Time') + '</span>' : r.via ? '<span class="pill a">Auto</span>' : '') + '</td></tr>').join("")
       : '<tr><td colspan="10" style="color:var(--muted); padding:16px;">Nothing yet.</td></tr>');
   render.rows = rows;
 }
@@ -363,15 +420,18 @@ function fillSelect(sel, allLabel, opts){
 function csvCell(v){ v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
 function stamp(iso){ if (!iso) return ""; const d = new Date(iso); return localDay(d) + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0"); }
 $("csvBtn").addEventListener("click", () => {
-  const {day, L, T, H} = dayData();
-  const head = ["Date","Driver","Driver email","Truck","Trailer","Job / Customer","Type","Load #","Material","Amount","Unit","Ticket #","Head","Weight (lb)","Miles","Hauled at","Clock in","Clock out","Hours","Pickup","Drop-off","Auto-counted","Notes"];
+  const {day, L, T, H, U} = dayData();
+  const head = ["Date","Driver","Driver email","Truck","Trailer","Job / Customer","Type","Load #","Material","Amount","Unit","Ticket #","Head","Weight (lb)","Miles","Hauled at","Clock in","Clock out","Hours","Pickup","Drop-off","Auto-counted","Notes","Equipment","Meter start","Meter end","Problem","Problem status"];
   const ll = (lat, lng) => lat ? lat.toFixed(5) + ", " + lng.toFixed(5) : "";
   const rows = L.map(r => [day, r.driverName, r.driverEmail, r.truck, r.trailer, r.customer, "Load", r.loadNum || 1, r.material, r.qty, r.qty ? (unitOf(r) === "yd" ? "yd" : "tons") : "",
       r.ticketNo, r.head, r.weight, r.miles, stamp(r.deliveredAt), "", "", "", r.pickup && r.pickup.address, r.dropoff && r.dropoff.address, r.via === "gps" ? "GPS" : r.via === "link" ? "Link" : "", r.notes])
     .concat(T.map(x => [day, x.job.driverName, x.job.driverEmail, x.e.truck, x.e.trailer, x.job.customer, "Time", "", x.job.material, "", "", "", "", "", "", "", stamp(x.e.start), stamp(x.e.end),
       x.e.end ? fmtHrs(entryMs(x.e) / 3600000) : "", x.job.pickup && x.job.pickup.address, x.job.dropoff && x.job.dropoff.address, "", x.job.notes]))
     .concat(H.map(h => [day, h.driverName, h.driverEmail, h.truck, hitchLabel(h), "", "Trailer", "", h.trailerType, "", "", "", "", "", hitchMiles(h) || "", "", stamp(h.hookAt), stamp(h.dropAt),
-      h.dropAt ? fmtHrs((new Date(h.dropAt) - new Date(h.hookAt)) / 3600000) : "", ll(h.hookLat, h.hookLng), ll(h.dropLat, h.dropLng), "", [h.hookNote, h.dropNote].filter(Boolean).join(" / ")]));
+      h.dropAt ? fmtHrs((new Date(h.dropAt) - new Date(h.hookAt)) / 3600000) : "", ll(h.hookLat, h.hookLng), ll(h.dropLat, h.dropLng), "", [h.hookNote, h.dropNote].filter(Boolean).join(" / ")]))
+    .concat(U.map(u => [day, u.driverName, u.driverEmail, "", "", u.job, "Equipment", "", u.equipType, "", "", "", "", "", "", "", "", "", num(u.hours) ? fmtHrs(num(u.hours)) : "", "", "", "", "",
+      u.equipLabel, u.meterStart, u.meterEnd, u.problem ? (u.problemSev === "down" ? "DOWN: " : "") + u.problem : "", u.problem ? (u.problemStatus || "open") : ""]));
+  rows.forEach(r => { while (r.length < head.length) r.push(""); });
   if (!rows.length){ toast("Nothing to export for this day"); return; }
   const csv = "﻿" + [head].concat(rows).map(r => r.map(csvCell).join(",")).join("\r\n");
   const a = document.createElement("a");
@@ -403,6 +463,61 @@ $("addMember").addEventListener("click", () => {
   const email = $("newEmail").value.trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ toast("Enter a full email address"); $("newEmail").focus(); return; }
   backend.setMember(email, {role: $("newRole").value}).then(() => { $("newEmail").value = ""; toast("Added " + email + ". They can sign in now."); })
+    .catch(err => toast("Couldn't add: " + (err.code || err)));
+});
+
+// ---------- shop: open problems ----------
+function renderShop(){
+  const open = Array.from(usage.values()).filter(u => u.problem && u.problemStatus !== "fixed")
+    .sort((a,b) => (a.problemSev === "down" ? 0 : 1) - (b.problemSev === "down" ? 0 : 1) || (b.date || "").localeCompare(a.date || ""));
+  $("shopSec").style.display = open.length ? "" : "none";
+  $("shopRows").innerHTML = open.map(u => '<div class="shop-row"><span class="sev' + (u.problemSev === "down" ? ' down' : '') + '">' + (u.problemSev === "down" ? "Down" : "Can run") + '</span>' +
+    '<div class="w"><b>' + esc(u.equipLabel || "Machine") + '</b> · ' + esc(u.problem) + '<br><span style="color:var(--muted); font-size:12px;">' +
+    esc(u.driverName || u.driverEmail || "") + ' · ' + esc(longDay(u.date)) + (u.job ? ' · ' + esc(u.job) : '') + '</span></div>' +
+    '<button class="btn" data-fix="' + esc(u.id) + '">Mark fixed</button></div>').join("");
+}
+$("shopRows").addEventListener("click", e => {
+  const b = e.target.closest("[data-fix]"); if (!b) return;
+  const note = prompt("What was done? (optional)", "");
+  if (note === null) return;
+  const now = new Date().toISOString();
+  backend.merge("usage", b.dataset.fix, {problemStatus: "fixed", fixedAt: now, fixedBy: me.email, fixNote: note, updatedAt: now})
+    .then(() => toast("Marked fixed")).catch(err => toast("Couldn't update: " + (err.code || err)));
+});
+
+// ---------- machines & service ----------
+function renderEquipList(){
+  const list = equipList.filter(e => !e.retired).sort((a,b) => String(a.unit || "").localeCompare(String(b.unit || ""), undefined, {numeric: true}));
+  const openBy = {};
+  for (const u of usage.values()) if (u.problem && u.problemStatus !== "fixed") openBy[u.equipId] = (openBy[u.equipId] || 0) + 1;
+  $("equipTbl").innerHTML = '<tr><th>Machine</th><th style="text-align:right">Meter</th><th style="text-align:right">Every</th><th style="text-align:right">Next service</th><th>Status</th><th>Shop</th><th></th></tr>' +
+    (list.length ? list.map(e => { const si = serviceInfo(e), m = meterOf(e);
+      return '<tr><td><b>' + esc(eqLabel(e)) + '</b>' + (e.lastMeterBy ? '<br><span style="color:var(--muted); font-size:11px;">meter from ' + esc(e.lastMeterBy) + '</span>' : '') + '</td>' +
+        '<td class="num">' + (m ? commas(m) : "—") + '</td><td class="num">' + (num(e.serviceEvery) ? commas(e.serviceEvery) : "—") + '</td>' +
+        '<td class="num">' + (si ? commas(si.due) : "—") + '</td><td>' + (si ? '<span class="svc ' + si.cls + '">' + esc(si.txt) + '</span>' : '<span style="color:var(--muted)">set interval</span>') + '</td>' +
+        '<td>' + (openBy[e.id] ? '<span class="sev down">' + openBy[e.id] + ' open</span>' : '') + '</td>' +
+        '<td style="text-align:right">' + (role === "office" || role === "admin" ? '<button class="btn" data-svc="' + esc(e.id) + '">Mark serviced</button> <button class="btn" data-every="' + esc(e.id) + '">Interval</button> <button class="btn" data-retire-eq="' + esc(e.id) + '">Retire</button>' : '') + '</td></tr>';
+    }).join("") : '<tr><td colspan="7" style="color:var(--muted); padding:16px;">No machines yet. Add them below.</td></tr>');
+}
+$("equipTbl").addEventListener("click", e => {
+  const svc = e.target.closest("[data-svc]"), ev = e.target.closest("[data-every]"), rt = e.target.closest("[data-retire-eq]");
+  const id = (svc || ev || rt) && (svc || ev || rt).dataset[svc ? "svc" : ev ? "every" : "retireEq"];
+  const m = equipList.find(x => x.id === id); if (!m) return;
+  const now = new Date().toISOString();
+  let patch = null;
+  if (svc){ const v = prompt("Hour meter at this service:", meterOf(m) || ""); if (v === null) return; const n = parseFloat(v); if (isNaN(n)) return toast("Enter the hour meter reading");
+    patch = {lastService: n, lastServiceAt: now, lastServiceBy: me.email}; if (n > num(m.lastMeter)) Object.assign(patch, {lastMeter: n, lastMeterAt: now, lastMeterBy: me.email}); }
+  if (ev){ const v = prompt("Service every how many hours?", m.serviceEvery || 250); if (v === null) return; const n = parseFloat(v); if (isNaN(n) || n <= 0) return toast("Enter a number of hours"); patch = {serviceEvery: n}; }
+  if (rt){ if (!confirm("Retire " + eqLabel(m) + "? It disappears from operators' list; past hours stay.")) return; patch = {retired: true}; }
+  backend.merge("equipment", id, patch).then(() => toast("Saved")).catch(err => toast("Couldn't save: " + (err.code || err)));
+});
+$("addEquip").addEventListener("click", () => {
+  const v = id => $(id).value.trim();
+  const e = {unit: v("eUnit"), type: v("eType"), model: v("eModel"), serviceEvery: parseFloat(v("eEvery")) || 0, lastService: parseFloat(v("eLast")) || 0,
+    lastMeter: parseFloat(v("eMeter")) || 0, lastMeterAt: new Date().toISOString(), lastMeterBy: me.email, addedBy: me.email};
+  if (!e.unit && !e.model && !e.type){ toast("Enter at least a unit # or model"); $("eUnit").focus(); return; }
+  const id = "E" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  backend.put("equipment", id, e).then(() => { ["eUnit","eType","eModel","eMeter","eEvery","eLast"].forEach(x => $(x).value = ""); toast("Added " + eqLabel(e)); })
     .catch(err => toast("Couldn't add: " + (err.code || err)));
 });
 
@@ -451,7 +566,7 @@ async function start(){
   window.addEventListener("offline", () => live("Offline · showing last data", "warn"));
   backend.onAuth(async u => {
     unsubs.forEach(f => { try { f(); } catch (e) {} }); unsubs = [];
-    records = new Map(); hitches = new Map(); me = u; role = null;
+    records = new Map(); hitches = new Map(); usage = new Map(); equipList = []; me = u; role = null;
     $("signOutBtn").style.display = u ? "" : "none";
     if (!u){ gate("Sign in with the Google account the admin added to the crew list as Office or Admin.", true); live("Signed out", "warn"); return; }
     gate("Checking access for " + esc(u.email) + "…", false);
@@ -468,11 +583,14 @@ async function start(){
     $("gate").style.display = "none"; $("app").style.display = ""; $("controls").style.display = "";
     $("crewSec").style.display = role === "admin" ? "" : "none";
     $("trailerSec").style.display = "";
+    $("equipSec").style.display = "";
     live(navigator.onLine ? "Live" : "Offline · showing last data", navigator.onLine ? "ok" : "warn");
     const onErr = err => { live("Error: " + (err.code || err), "warn"); };
     const into = map => snap => { snap.changes.forEach(ch => { if (ch.type === "removed") map.delete(ch.id); else map.set(ch.id, Object.assign({id: ch.id}, ch.data)); }); render(); };
     unsubs.push(backend.watchAll("records", into(records), onErr));
     unsubs.push(backend.watchAll("hitches", into(hitches), onErr));
+    unsubs.push(backend.watchAll("usage", snap => { into(usage)(snap); renderShop(); renderEquipList(); }, onErr));
+    unsubs.push(backend.watchCol("equipment", list => { equipList = list; renderEquipList(); }, () => {}));
     unsubs.push(backend.watchCol("trailers", list => { trailerList = list; renderTrailers(); }, () => {}));
     if (role === "admin") unsubs.push(backend.watchMembers(list => { crew = list; renderCrew(); }, () => {}));
     render();

@@ -4,6 +4,8 @@
 //   orgs/{org}/records/{id}      one load, or one hourly job (with its time entries)
 //   orgs/{org}/hitches/{id}      one trailer hookup: hook time/place/odometer, drop time/place/odometer
 //   orgs/{org}/trailers/{id}     the crew's shared trailer list { type, name }
+//   orgs/{org}/usage/{id}        one operator's hours on one machine for a day (+ problem for the shop)
+//   orgs/{org}/equipment/{id}    the crew's machine list { unit, type, model, serviceEvery, lastService, lastMeter }
 // records and hitches also carry driverUid / driverName / driverEmail / updatedAt
 import {
   initializeApp, getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
@@ -73,6 +75,7 @@ export async function createBackend(config, org) {
     },
     put(name, id, data) { return setDoc(doc(col(name), id), data); },
     del(name, id) { return deleteDoc(doc(col(name), id)); },
+    merge(name, id, data) { return setDoc(doc(col(name), id), data, { merge: true }); },
     waitSynced() { return waitForPendingWrites(db); },
     watchMembers(cb, onErr) {
       return onSnapshot(collection(db, "orgs", org, "members"),

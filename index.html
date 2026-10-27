@@ -309,6 +309,36 @@
   #officeLink{flex:1; display:flex; align-items:center; justify-content:center; text-decoration:none; padding:12px 8px; border-radius:var(--radius);
     font-weight:800; text-transform:uppercase; font-size:12px; letter-spacing:0.03em; background:var(--paper); color:var(--ink);}
 
+  /* ---------- loads / equipment tabs ---------- */
+  .view-tabs{display:flex; margin-top:10px; border:1px solid #4a463f; border-radius:var(--radius); overflow:hidden;}
+  .view-tabs button{flex:1; background:transparent; border:0; color:#c9bfae; padding:9px 6px; font-size:12px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase;}
+  .view-tabs button + button{border-left:1px solid #4a463f;}
+  .view-tabs button.on{background:var(--orange); color:#1c1200;}
+  #equipView{display:none;}
+  body.view-equip #equipView{display:block;}
+  body.view-equip .stats, body.view-equip #filterChips, body.view-equip .searchbar, body.view-equip #loadList, body.view-equip #emptyState{display:none !important;}
+  .eq-title{font-size:12px; font-weight:900; letter-spacing:0.1em; text-transform:uppercase; color:#c9bfae; margin:20px 0 8px;}
+  .eq-row{display:flex; gap:10px; align-items:flex-start; padding:9px 0; border-bottom:1px solid var(--paper-dim); font-size:13px;}
+  .eq-row:last-child{border-bottom:0;}
+  .eq-row .main{flex:1; min-width:0; line-height:1.45;}
+  .eq-row .main b{font-size:14px;}
+  .eq-row .sub{color:var(--muted); font-size:12px; font-family:"SF Mono",Menlo,monospace;}
+  .eq-row .hrs{font-family:"SF Mono",Menlo,monospace; font-weight:900; font-size:18px; white-space:nowrap;}
+  .eq-day{display:flex; justify-content:space-between; align-items:baseline; font-weight:900; text-transform:uppercase; font-size:12px; letter-spacing:0.05em; padding-bottom:6px; border-bottom:1px dashed #c9bfae;}
+  .prob{display:inline-block; margin-top:4px; padding:2px 7px; border-radius:2px; font-size:10px; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; color:#fff; background:var(--enroute);}
+  .prob.down{background:var(--cancelled);}
+  .prob.fixed{background:var(--delivered);}
+  .svc{font-size:10px; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; padding:2px 6px; border-radius:2px; white-space:nowrap;}
+  .svc.ok{background:#dfeee4; color:#2b6845;} .svc.soon{background:#f6e5bf; color:#7a5300;} .svc.over{background:var(--cancelled); color:#fff;}
+  .sev-seg{display:flex; gap:6px;}
+  .sev-seg button{flex:1; padding:11px 6px; border-radius:var(--radius); background:transparent; border:1px solid #4a463f; color:#c9bfae; font-size:12px; font-weight:900; text-transform:uppercase;}
+  .sev-seg button.on[data-sev="run"]{background:var(--enroute); border-color:var(--enroute); color:#1c1200;}
+  .sev-seg button.on[data-sev="down"]{background:var(--cancelled); border-color:var(--cancelled); color:#fff;}
+  .meter-in{font-size:20px !important; font-weight:900; font-family:"SF Mono",Menlo,monospace; text-align:center;}
+  .eq-select{width:100%; background:var(--asphalt-2); border:1px solid #3a3733; color:var(--paper); padding:12px; border-radius:var(--radius); font-size:15px;}
+  .check-row{display:flex; align-items:center; gap:10px; padding:12px; background:var(--asphalt-2); border:1px solid #3a3733; border-radius:var(--radius); font-weight:800; font-size:14px;}
+  .check-row input{width:22px; height:22px;}
+
   /* ---------- trailer ---------- */
   .trailer-chip{
     width:100%; margin-top:8px; display:flex; align-items:center; gap:8px; text-align:left;
@@ -445,6 +475,8 @@
   <button class="trailer-chip" id="trailerBtn"><span class="tlabel">Trailer</span><span class="tname" id="trailerName">＋ Hook a trailer</span><span class="tsince" id="trailerSince"></span></button>
   <div class="auto-banner" id="autoBanner"></div>
 
+  <div class="view-tabs" id="viewTabs"><button data-view="loads" class="on">Loads</button><button data-view="equip">Equipment</button></div>
+
   <div class="stats">
     <div class="stat scheduled"><div class="num" id="statScheduled">0</div><div class="lbl">Scheduled</div></div>
     <div class="stat enroute"><div class="num" id="statEnroute">0</div><div class="lbl">En Route</div></div>
@@ -467,6 +499,32 @@
 
 <main>
   <div id="loadList"></div>
+  <div id="equipView">
+    <button class="plus-one" id="logEquipBtn">＋ Log equipment hours</button>
+    <div id="eqProblemsWrap" style="display:none;">
+      <div class="eq-title">Open problems you reported</div>
+      <div class="load-card" style="padding-top:6px; padding-bottom:6px;" id="eqProblems"></div>
+    </div>
+    <div class="eq-title">Your equipment log</div>
+    <div id="eqLog"></div>
+    <div class="eq-title">Machines</div>
+    <div class="load-card" style="padding-top:6px; padding-bottom:6px;" id="eqMachines"></div>
+    <div id="eqAddWrap" style="display:none;">
+      <div class="eq-title">Add a machine</div>
+      <div class="field-row">
+        <div class="field"><label>Unit #</label><input type="text" id="eqNewUnit" placeholder="e.g. 14"></div>
+        <div class="field"><label>Type</label><input type="text" id="eqNewType" list="eqTypes" placeholder="e.g. Excavator"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Make / model</label><input type="text" id="eqNewModel" placeholder="e.g. CAT 320"></div>
+        <div class="field"><label>Service every (hrs)</label><input type="text" id="eqNewEvery" inputmode="numeric" placeholder="e.g. 250"></div>
+      </div>
+      <button class="btn-save" id="eqAddBtn" style="width:100%; padding:13px; border-radius:var(--radius); font-weight:800; text-transform:uppercase;">Add machine</button>
+    </div>
+    <div class="map-hint" id="eqListHint" style="margin-top:8px;"></div>
+  </div>
+  <datalist id="eqTypes"><option>Excavator</option><option>Mini excavator</option><option>Dozer</option><option>Wheel loader</option><option>Skid steer</option><option>Compact track loader</option><option>Backhoe</option><option>Motor grader</option><option>Roller</option><option>Off-road truck</option><option>Water truck</option><option>Scraper</option></datalist>
+  <datalist id="jobOptions"></datalist>
   <div class="empty-state" id="emptyState" style="display:none;">
     <div class="display">No loads yet</div>
     <p>Tap "+ New" to add one, or "Import" to bring in a paste block, CSV file, or a map pin link.</p>
@@ -636,6 +694,47 @@
       <button class="btn-cancel" id="cancelTicketBtn">Cancel</button>
       <button class="btn-save" id="saveTicketBtn">Log Load</button>
     </div>
+  </div>
+</div>
+
+<!-- Equipment Usage Modal -->
+<div class="modal-backdrop" id="usageModalBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 id="usageTitle">Log equipment hours</h2>
+    <input type="hidden" id="u_id">
+    <div class="field-row">
+      <div class="field"><label>Day</label><input type="date" id="u_date"></div>
+      <div class="field"><label>Job / customer</label><input type="text" id="u_job" list="jobOptions" placeholder="e.g. Pool-tech"></div>
+    </div>
+    <div class="field">
+      <label>Machine</label>
+      <select class="eq-select" id="u_equip"></select>
+      <div class="map-hint" id="u_equipHint"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Hour meter start</label><input class="meter-in" type="text" id="u_start" inputmode="decimal" placeholder="0.0"></div>
+      <div class="field"><label>Hour meter end</label><input class="meter-in" type="text" id="u_end" inputmode="decimal" placeholder="0.0"></div>
+    </div>
+    <div class="field">
+      <label>Hours</label>
+      <input class="meter-in" type="text" id="u_hours" inputmode="decimal" placeholder="fills in from the meter">
+      <div class="map-hint" id="u_hint"></div>
+    </div>
+    <div class="field">
+      <label class="check-row" for="u_hasProblem"><input type="checkbox" id="u_hasProblem"> Report a problem to the shop</label>
+    </div>
+    <div id="u_problemBox" style="display:none;">
+      <div class="field"><label>What's wrong?</label><textarea id="u_problem" placeholder="e.g. hydraulic leak at boom cylinder, check engine light"></textarea></div>
+      <div class="field">
+        <div class="sev-seg" id="u_sev"><button type="button" data-sev="run">Can still run</button><button type="button" data-sev="down">Down — needs shop</button></div>
+      </div>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="u_cancel">Cancel</button>
+      <button class="btn-save" id="u_save">Save</button>
+    </div>
+    <button class="btn-cancel" id="u_saveAnother" style="width:100%; margin-top:10px; padding:13px; border-radius:var(--radius); font-weight:800; text-transform:uppercase;">Save + log another machine</button>
   </div>
 </div>
 
@@ -852,7 +951,7 @@
         <h3>Backup</h3>
         <p>Without crew sync, your loads live only on this device: clearing the browser's site data or uninstalling the app erases them. A backup file saves everything; keep it in Files/Downloads or email it to yourself. It can also move loads between devices.</p>
         <p>Last backup: <span class="backup-status" id="backupStatus">never</span></p>
-        <p style="margin-top:6px; font-size:11px;">App version 2026.10.26-3</p>
+        <p style="margin-top:6px; font-size:11px;">App version 2026.10.26-4</p>
         <div class="btn-row">
           <button class="go" id="backupBtn">Save backup</button>
           <label class="icon-btn" for="restoreFile" style="flex:1; justify-content:center; text-transform:uppercase; font-size:12px; font-weight:800; letter-spacing:0.03em;">Restore backup</label>
@@ -1900,7 +1999,9 @@
   });
 
   // ---------- modal wiring ----------
-  document.getElementById("newLoadBtn").addEventListener("click", function(){ openLoadModal(null); });
+  document.getElementById("newLoadBtn").addEventListener("click", function(){
+    if(document.body.classList.contains("view-equip")) openUsageModal(null); else openLoadModal(null);
+  });
   document.getElementById("cancelLoadBtn").addEventListener("click", closeLoadModal);
   document.getElementById("saveLoadBtn").addEventListener("click", saveLoadFromForm);
   document.getElementById("loadModalBackdrop").addEventListener("click", function(e){
@@ -2045,6 +2146,18 @@
       if(O.length) L.push({k:"sub", t:O.length + " planned load" + (O.length === 1 ? "" : "s") + " not hauled"});
       if(head.notes) L.push({k:"sub", t:"Note: " + head.notes});
     });
+    // equipment hours
+    const us = usage.filter(u => u.date === day).sort((a,b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
+    let eqHrs = 0;
+    if(us.length){
+      L.push({k:"job", t:"Equipment"});
+      us.forEach(function(u){
+        eqHrs += num(u.hours);
+        L.push({k:"item", t:[u.equipLabel || "Machine", u.job, meterTxt(u), num(u.hours) ? fmtHrs(num(u.hours)) + " hrs" : ""].filter(Boolean).join(" · ")});
+        if(u.problem) L.push({k:"sub", t:(u.problemSev === "down" ? "DOWN, needs shop: " : "Problem: ") + u.problem + (u.problemStatus === "fixed" ? " (fixed)" : "")});
+      });
+      if(us.length > 1) L.push({k:"sum", t:fmtHrs(eqHrs) + " machine hrs"});
+    }
     // trailer hookups
     const hs = hitches.filter(h => localDay(new Date(h.hookAt)) === day || (h.dropAt && localDay(new Date(h.dropAt)) === day))
       .sort((a,b) => a.hookAt.localeCompare(b.hookAt));
@@ -2065,15 +2178,16 @@
       L.push({k:"empty", t:"Nothing hauled or clocked on this day."});
       return L;
     }
-    const parts = [totLoads + (totLoads === 1 ? " load" : " loads")];
+    const parts = totLoads ? [totLoads + (totLoads === 1 ? " load" : " loads")] : [];
     if(amt(allDelivered)) parts.push(amt(allDelivered));
     if(tripTotals(tripAll)) parts.push(tripTotals(tripAll));
     if(totHrs) parts.push(fmtHrs(totHrs) + " hrs");
+    if(eqHrs) parts.push(fmtHrs(eqHrs) + " machine hrs");
     const tk = Object.keys(daysTrucks);
     if(tk.length) parts.push((tk.length === 1 ? "Truck " : "Trucks ") + tk.join(", "));
     const nt = Object.keys(ticketSet).length;
     if(nt) parts.push(nt + (nt === 1 ? " ticket" : " tickets"));
-    L.push({k:"total", t:"DAY TOTAL: " + parts.join(" · ")});
+    if(parts.length) L.push({k:"total", t:"DAY TOTAL: " + parts.join(" · ")});
     return L;
   }
   function reportText(lines){
@@ -2152,7 +2266,7 @@
     return localDay(d) + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
   }
   function csvRows(day){
-    const head = ["Date","Job / Customer","Type","Load #","Truck","Trailer","Material","Amount","Unit","Ticket #","Head","Weight (lb)","Miles","Status","Hauled at","Clock in","Clock out","Hours","Pickup","Drop-off","Auto-counted","Notes"];
+    const head = ["Date","Job / Customer","Type","Load #","Truck","Trailer","Material","Amount","Unit","Ticket #","Head","Weight (lb)","Miles","Status","Hauled at","Clock in","Clock out","Hours","Pickup","Drop-off","Auto-counted","Notes","Equipment","Meter start","Meter end","Problem","Problem status"];
     const rows = [];
     loads.slice().sort((a,b) => a.createdAt.localeCompare(b.createdAt)).forEach(function(l){
       if(l.billing === "hourly"){
@@ -2179,6 +2293,12 @@
         placeName(h.hookLat, h.hookLng) || coordTxt(h.hookLat, h.hookLng), placeName(h.dropLat, h.dropLng) || coordTxt(h.dropLat, h.dropLng), "",
         [h.hookNote, h.dropNote].filter(Boolean).join(" / ")]);
     });
+    usage.forEach(function(u){
+      if(day && u.date !== day) return;
+      rows.push([u.date, u.job, "Equipment", "", "", "", "", "", "", "", "", "", "", "", "", "", "", num(u.hours) ? fmtHrs(num(u.hours)) : "", "", "", "", "",
+        u.equipLabel, u.meterStart, u.meterEnd, u.problem ? (u.problemSev === "down" ? "DOWN: " : "") + u.problem : "", u.problem ? (u.problemStatus || "open") : ""]);
+    });
+    rows.forEach(r => { while(r.length < head.length) r.push(""); });
     rows.sort((a,b) => String(a[0]).localeCompare(String(b[0])));
     return [head].concat(rows);
   }
@@ -2218,7 +2338,7 @@
     document.getElementById("importBtn").innerHTML = "Data" + (backupStale() ? '<span class="dot"></span>' : "");
   }
   function downloadBackup(){
-    const payload = {app: "loadsheet", version: 1, exportedAt: new Date().toISOString(), settings: getSettings(), loads: loads, hitches: hitches, trailers: trailers};
+    const payload = {app: "loadsheet", version: 1, exportedAt: new Date().toISOString(), settings: getSettings(), loads: loads, hitches: hitches, trailers: trailers, usage: usage, equipment: equipment};
     download("loadsheet-backup-" + localDay() + ".json", JSON.stringify(payload, null, 1), "application/json");
     try{ localStorage.setItem(BACKUP_KEY, new Date().toISOString()); }catch(e){}
     renderBackupStatus();
@@ -2254,6 +2374,17 @@
       if(Array.isArray(data.trailers)){
         data.trailers.forEach(t => { if(t && t.id && !trailers.some(x => x.id === t.id)) trailers.push(t); });
         saveTrailers();
+      }
+      if(Array.isArray(data.usage)){
+        const ub = {};
+        usage.forEach(u => ub[u.id] = u);
+        data.usage.filter(u => u && u.id && u.date).forEach(u => ub[u.id] = u);
+        usage = Object.keys(ub).map(k => ub[k]);
+        persistUsageQuiet();
+      }
+      if(Array.isArray(data.equipment)){
+        data.equipment.forEach(e => { if(e && e.id && !equipment.some(x => x.id === e.id)) equipment.push(e); });
+        saveEquipment();
       }
       if(data.settings && data.settings.driver && !getSettings().driver) saveSettings({driver: data.settings.driver});
       persist();
@@ -2904,6 +3035,228 @@
     }
   });
 
+  // ================= EQUIPMENT =================
+  const USAGE_KEY = "loadsheet_usage_v1", EQUIP_KEY = "loadsheet_equipment_v1";
+  let usage = [], equipment = [];
+  function num(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+  function loadUsage(){
+    try{ usage = JSON.parse(localStorage.getItem(USAGE_KEY)) || []; }catch(e){ usage = []; }
+    try{ equipment = JSON.parse(localStorage.getItem(EQUIP_KEY)) || []; }catch(e){ equipment = []; }
+  }
+  function persistUsageQuiet(){ try{ localStorage.setItem(USAGE_KEY, JSON.stringify(usage)); }catch(e){} }
+  function persistUsage(){
+    persistUsageQuiet();
+    try{ window.LoadSheetCloud && window.LoadSheetCloud.onLocalChange(); }catch(e){ console.error(e); }
+  }
+  function saveEquipment(){ try{ localStorage.setItem(EQUIP_KEY, JSON.stringify(equipment)); }catch(e){} }
+  function eqLabel(e){
+    if(!e) return "";
+    return [e.unit ? "Unit " + e.unit : "", e.model || "", e.type || ""].filter(Boolean).join(" · ");
+  }
+  function meterTxt(u){
+    return u.meterStart !== "" && u.meterStart != null && u.meterEnd !== "" && u.meterEnd != null && (u.meterStart || u.meterEnd)
+      ? "meter " + commas(u.meterStart) + "–" + commas(u.meterEnd) : "";
+  }
+  // latest meter reading we know for a machine: shared list or this operator's own entries
+  function lastMeter(eqId){
+    const e = equipment.find(x => x.id === eqId);
+    let m = e ? num(e.lastMeter) : 0;
+    usage.forEach(u => { if(u.equipId === eqId && num(u.meterEnd) > m) m = num(u.meterEnd); });
+    return m;
+  }
+  function serviceStatus(e){
+    const every = num(e.serviceEvery), last = num(e.lastService), now = lastMeter(e.id);
+    if(!every || !now) return null;
+    const left = Math.round(((last || 0) + every - now) * 10) / 10;
+    // first interval: no service recorded yet, count from the next multiple of the interval
+    const leftFirst = last ? left : Math.round((Math.ceil(now / every) * every - now) * 10) / 10;
+    const l = last ? left : leftFirst;
+    if(l <= 0) return {cls: "over", txt: "Service overdue " + commas(-l) + " hrs"};
+    if(l <= Math.max(25, every * 0.1)) return {cls: "soon", txt: "Service in " + commas(l) + " hrs"};
+    return {cls: "ok", txt: commas(l) + " hrs to service"};
+  }
+  function canEditEquipList(){
+    const c = window.LoadSheetCloud;
+    if(!c || !c.isOn()) return true;                  // device-only: operators keep their own list
+    const m = c.status().member;
+    return !!(m && (m.role === "office" || m.role === "admin"));
+  }
+
+  function setView(v){
+    document.body.classList.toggle("view-equip", v === "equip");
+    document.querySelectorAll("#viewTabs button").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+    try{ localStorage.setItem("loadsheet_view", v); }catch(e){}
+    document.getElementById("newLoadBtn").textContent = v === "equip" ? "+ Hours" : "+ New";
+    if(v === "equip") renderEquip();
+  }
+  document.getElementById("viewTabs").addEventListener("click", function(e){
+    const b = e.target.closest("button"); if(b) setView(b.dataset.view);
+  });
+
+  function renderEquip(){
+    // open problems this operator reported
+    const open = usage.filter(u => u.problem && u.problemStatus !== "fixed").sort((a,b) => (b.date || "").localeCompare(a.date || ""));
+    document.getElementById("eqProblemsWrap").style.display = open.length ? "" : "none";
+    document.getElementById("eqProblems").innerHTML = open.map(u => '<div class="eq-row"><div class="main"><b>' + escapeHtml(u.equipLabel) + '</b><br>' +
+      escapeHtml(u.problem) + '<br><span class="prob' + (u.problemSev === "down" ? ' down' : '') + '">' + (u.problemSev === "down" ? "Down · needs shop" : "Can still run") + '</span>' +
+      ' <span class="sub">' + escapeHtml(fmtDay(u.date)) + '</span></div></div>').join("");
+
+    // log by day, newest first (last 14 days with entries)
+    const days = {};
+    usage.forEach(u => { (days[u.date] = days[u.date] || []).push(u); });
+    const keys = Object.keys(days).sort().reverse().slice(0, 14);
+    document.getElementById("eqLog").innerHTML = keys.length ? keys.map(function(d){
+      const list = days[d].sort((a,b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
+      const tot = list.reduce((s, u) => s + num(u.hours), 0);
+      return '<div class="load-card" style="padding-top:12px; padding-bottom:6px;"><div class="eq-day"><span>' + escapeHtml(fmtDay(d)) + '</span><span class="mono">' + fmtHrs(tot) + ' hrs</span></div>' +
+        list.map(u => '<div class="eq-row" data-uid="' + escapeHtml(u.id) + '"><div class="main"><b>' + escapeHtml(u.equipLabel || "Machine") + '</b>' +
+          (u.job ? '<br>' + escapeHtml(u.job) : '') + (meterTxt(u) ? '<br><span class="sub">' + escapeHtml(meterTxt(u)) + '</span>' : '') +
+          (u.problem ? '<br><span class="prob' + (u.problemStatus === "fixed" ? ' fixed' : u.problemSev === "down" ? ' down' : '') + '">' +
+            (u.problemStatus === "fixed" ? "Fixed" : u.problemSev === "down" ? "Down" : "Problem") + '</span> <span class="sub">' + escapeHtml(u.problem) + '</span>' : '') +
+          '</div><div class="hrs">' + (num(u.hours) ? fmtHrs(num(u.hours)) : '—') + '</div>' +
+          '<button class="row-btn u-edit">Edit</button></div>').join("") + '</div>';
+    }).join("") : '<div class="empty-state" style="padding:24px 10px;"><p>No equipment hours yet. Tap <b>＋ Log equipment hours</b> at the end of the day.</p></div>';
+
+    // machines
+    const list = equipment.filter(e => !e.retired).sort((a,b) => String(a.unit || "").localeCompare(String(b.unit || ""), undefined, {numeric: true}));
+    document.getElementById("eqMachines").innerHTML = list.length ? list.map(function(e){
+      const st = serviceStatus(e);
+      const m = lastMeter(e.id);
+      return '<div class="eq-row"><div class="main"><b>' + escapeHtml(eqLabel(e)) + '</b>' + (m ? '<br><span class="sub">meter ' + commas(m) + '</span>' : '') + '</div>' +
+        (st ? '<span class="svc ' + st.cls + '">' + escapeHtml(st.txt) + '</span>' : '') + '</div>';
+    }).join("") : '<div class="map-hint" style="padding:10px 0;">No machines on the list yet.</div>';
+    const editable = canEditEquipList();
+    const synced = window.LoadSheetCloud && window.LoadSheetCloud.isOn();
+    document.getElementById("eqAddWrap").style.display = editable && !synced ? "" : "none";
+    document.getElementById("eqListHint").textContent = synced
+      ? (editable ? "You manage the machine list on the office page." : "The office keeps the machine list. Ask them to add a machine that's missing.")
+      : "";
+  }
+  document.getElementById("eqLog").addEventListener("click", function(e){
+    const row = e.target.closest("[data-uid]"); if(!row || !e.target.closest(".u-edit")) return;
+    openUsageModal(usage.find(u => u.id === row.dataset.uid));
+  });
+  document.getElementById("eqAddBtn").addEventListener("click", function(){
+    const e = {id: uid(), unit: document.getElementById("eqNewUnit").value.trim(), type: document.getElementById("eqNewType").value.trim(),
+      model: document.getElementById("eqNewModel").value.trim(), serviceEvery: document.getElementById("eqNewEvery").value.trim().replace(/[^\d.]/g, ""),
+      lastService: "", lastMeter: 0};
+    if(!e.unit && !e.model && !e.type){ document.getElementById("eqNewUnit").focus(); return; }
+    equipment.push(e); saveEquipment();
+    ["eqNewUnit", "eqNewType", "eqNewModel", "eqNewEvery"].forEach(id => document.getElementById(id).value = "");
+    renderEquip(); flash("Added " + eqLabel(e));
+  });
+
+  // ---------- usage entry sheet ----------
+  let usageSev = "run";
+  function refreshJobOptions(){
+    const names = new Set();
+    loads.forEach(l => { if(l.customer) names.add(l.customer); });
+    usage.forEach(u => { if(u.job) names.add(u.job); });
+    document.getElementById("jobOptions").innerHTML = Array.from(names).sort().map(n => '<option value="' + escapeHtml(n) + '">').join("");
+  }
+  function fillEquipSelect(selected){
+    const list = equipment.filter(e => !e.retired || e.id === selected).sort((a,b) => String(a.unit || "").localeCompare(String(b.unit || ""), undefined, {numeric: true}));
+    document.getElementById("u_equip").innerHTML = '<option value="">Pick a machine…</option>' +
+      list.map(e => { const st = serviceStatus(e); return '<option value="' + escapeHtml(e.id) + '"' + (e.id === selected ? ' selected' : '') + '>' +
+        escapeHtml(eqLabel(e)) + (st && st.cls === "over" ? "  ⚠ service overdue" : "") + '</option>'; }).join("");
+  }
+  function calcHours(){
+    const a = document.getElementById("u_start").value.trim(), b = document.getElementById("u_end").value.trim();
+    const hint = document.getElementById("u_hint");
+    if(a && b){
+      const d = Math.round((num(b) - num(a)) * 10) / 10;
+      if(d < 0){ hint.textContent = "End is lower than start. Check the meter."; return; }
+      document.getElementById("u_hours").value = d;
+      hint.textContent = d > 16 ? "That's over 16 hours. Double-check the meter." : "";
+    } else hint.textContent = "";
+  }
+  function openUsageModal(existing){
+    refreshJobOptions();
+    document.getElementById("usageTitle").textContent = existing ? "Edit equipment hours" : "Log equipment hours";
+    document.getElementById("u_id").value = existing ? existing.id : "";
+    document.getElementById("u_date").value = existing ? existing.date : localDay();
+    document.getElementById("u_job").value = existing ? (existing.job || "") : "";
+    fillEquipSelect(existing ? existing.equipId : "");
+    document.getElementById("u_start").value = existing ? (existing.meterStart || "") : "";
+    document.getElementById("u_end").value = existing ? (existing.meterEnd || "") : "";
+    document.getElementById("u_hours").value = existing ? (existing.hours || "") : "";
+    document.getElementById("u_hint").textContent = "";
+    document.getElementById("u_equipHint").textContent = equipment.filter(e => !e.retired).length ? "" :
+      (canEditEquipList() ? "Add your machines on the Equipment tab first." : "The office hasn't added any machines yet.");
+    const hasP = !!(existing && existing.problem);
+    document.getElementById("u_hasProblem").checked = hasP;
+    document.getElementById("u_problemBox").style.display = hasP ? "" : "none";
+    document.getElementById("u_problem").value = existing ? (existing.problem || "") : "";
+    usageSev = existing && existing.problemSev ? existing.problemSev : "run";
+    renderSev();
+    document.getElementById("u_saveAnother").style.display = existing ? "none" : "";
+    document.getElementById("usageModalBackdrop").classList.add("open");
+  }
+  function renderSev(){ document.querySelectorAll("#u_sev button").forEach(b => b.classList.toggle("on", b.dataset.sev === usageSev)); }
+  function closeUsageModal(){ document.getElementById("usageModalBackdrop").classList.remove("open"); }
+  document.getElementById("u_cancel").addEventListener("click", closeUsageModal);
+  document.getElementById("usageModalBackdrop").addEventListener("click", function(e){ if(e.target === this) closeUsageModal(); });
+  document.getElementById("u_sev").addEventListener("click", function(e){ const b = e.target.closest("button"); if(b){ usageSev = b.dataset.sev; renderSev(); } });
+  document.getElementById("u_hasProblem").addEventListener("change", function(){
+    document.getElementById("u_problemBox").style.display = this.checked ? "" : "none";
+    if(this.checked) document.getElementById("u_problem").focus();
+  });
+  document.getElementById("u_equip").addEventListener("change", function(){
+    const id = this.value;
+    if(!id || document.getElementById("u_id").value) return;
+    const m = lastMeter(id);
+    if(m && !document.getElementById("u_start").value){ document.getElementById("u_start").value = m; }
+    const e = equipment.find(x => x.id === id);
+    const st = e && serviceStatus(e);
+    document.getElementById("u_equipHint").textContent = (m ? "Last meter reading: " + commas(m) + ". " : "") + (st && st.cls !== "ok" ? st.txt + "." : "");
+    calcHours();
+    document.getElementById("u_end").focus();
+  });
+  document.getElementById("u_start").addEventListener("input", calcHours);
+  document.getElementById("u_end").addEventListener("input", calcHours);
+  function saveUsage(another){
+    const eqId = document.getElementById("u_equip").value;
+    const e = equipment.find(x => x.id === eqId);
+    const hint = document.getElementById("u_hint");
+    if(!e){ document.getElementById("u_equipHint").textContent = "Pick the machine."; document.getElementById("u_equip").focus(); return; }
+    const clean = id => document.getElementById(id).value.trim().replace(/[^\d.]/g, "");
+    const ms = clean("u_start"), me = clean("u_end");
+    let hrs = clean("u_hours");
+    if(ms && me && num(me) < num(ms)){ hint.textContent = "End is lower than start. Check the meter."; return; }
+    if(!hrs && ms && me) hrs = String(Math.round((num(me) - num(ms)) * 10) / 10);
+    const hasP = document.getElementById("u_hasProblem").checked;
+    const prob = hasP ? document.getElementById("u_problem").value.trim() : "";
+    if(!hrs && !prob){ hint.textContent = "Enter the hour meter (or the hours), or report a problem."; return; }
+    const id = document.getElementById("u_id").value;
+    const old = id ? usage.find(u => u.id === id) : null;
+    const rec = Object.assign({}, old || {}, {
+      id: id || uid(), date: document.getElementById("u_date").value || localDay(), job: document.getElementById("u_job").value.trim(),
+      equipId: e.id, equipLabel: eqLabel(e), equipType: e.type || "", meterStart: ms, meterEnd: me, hours: hrs,
+      truck: curTruck(), createdAt: old ? old.createdAt : new Date().toISOString()
+    });
+    if(prob){
+      const changed = !old || old.problem !== prob || old.problemSev !== usageSev;
+      Object.assign(rec, {problem: prob, problemSev: usageSev, problemStatus: changed ? "open" : (old.problemStatus || "open")});
+    } else { rec.problem = ""; rec.problemSev = ""; rec.problemStatus = ""; }
+    if(old) usage[usage.indexOf(old)] = rec; else usage.push(rec);
+    persistUsage();
+    // keep the machine's shared meter reading current
+    if(me && num(me) > num(e.lastMeter)){
+      e.lastMeter = num(me); e.lastMeterAt = new Date().toISOString(); saveEquipment();
+      try{ window.LoadSheetCloud && window.LoadSheetCloud.isOn() && window.LoadSheetCloud.bumpMeter(e.id, num(me)); }catch(err){}
+    }
+    renderEquip();
+    flash((old ? "Updated " : "Logged ") + (hrs ? fmtHrs(num(hrs)) + " hrs on " : "") + eqLabel(e) + (prob ? (usageSev === "down" ? " · reported DOWN" : " · problem sent to shop") : ""));
+    if(another){
+      openUsageModal(null);
+      document.getElementById("u_date").value = rec.date;
+      document.getElementById("u_job").value = rec.job;
+    } else closeUsageModal();
+  }
+  document.getElementById("u_save").addEventListener("click", function(){ saveUsage(false); });
+  document.getElementById("u_saveAnother").addEventListener("click", function(){ saveUsage(true); });
+  document.getElementById("logEquipBtn").addEventListener("click", function(){ openUsageModal(null); });
+
   // ---------- hooks for crew sync (cloud.js) ----------
   window.LoadSheetApp = {
     getLoads: function(){ return loads; },
@@ -2911,6 +3264,14 @@
     persistQuiet: persistQuiet,
     getHitches: function(){ return hitches; },
     getTrailers: function(){ return trailers; },
+    getUsage: function(){ return usage; },
+    setUsage: function(arr){ usage = arr; persistUsageQuiet(); if(document.body.classList.contains("view-equip")) renderEquip(); },
+    persistUsageQuiet: persistUsageQuiet,
+    setEquipment: function(list){
+      equipment = list.map(e => Object.assign({}, e));
+      saveEquipment();
+      if(document.body.classList.contains("view-equip")) renderEquip();
+    },
     setHitches: function(arr){ hitches = arr; persistHitchesQuiet(); renderTrailerChip(); render(); },
     persistHitchesQuiet: persistHitchesQuiet,
     setTrailers: function(list){
@@ -2930,10 +3291,12 @@
   // ---------- init ----------
   load();
   loadHitches();
+  loadUsage();
   render();
   renderBackupStatus();
   renderTruckChip();
   renderTrailerChip();
+  try{ setView(localStorage.getItem("loadsheet_view") === "equip" ? "equip" : "loads"); }catch(e){ setView("loads"); }
   refreshTruckOptions();
   handleLink();
   if(getSettings().autoOn) startAuto();
@@ -2958,7 +3321,7 @@
       }).catch(function(){});
     });
   }
-  window.LOADSHEET_VERSION = "2026.10.26-3";
+  window.LOADSHEET_VERSION = "2026.10.26-4";
 })();
 </script>
 <script type="module" src="cloud.js"></script>

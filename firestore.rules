@@ -26,12 +26,22 @@ service cloud.firestore {
       allow write: if isAdmin(org);
     }
 
-    // loads / hourly jobs, and trailer hookups: same ownership rules
+    // loads / hourly jobs, trailer hookups and equipment hours: same ownership rules
     match /orgs/{org}/{kind}/{id} {
-      allow read: if kind in ['records', 'hitches'] && (isOffice(org) || (isMember(org) && mine()));
-      allow create: if kind in ['records', 'hitches'] && isMember(org) && staysMine();
-      allow update: if kind in ['records', 'hitches'] && (isOffice(org) || (isMember(org) && mine() && staysMine()));
-      allow delete: if kind in ['records', 'hitches'] && (isOffice(org) || (isMember(org) && mine()));
+      allow read: if kind in ['records', 'hitches', 'usage'] && (isOffice(org) || (isMember(org) && mine()));
+      allow create: if kind in ['records', 'hitches', 'usage'] && isMember(org) && staysMine();
+      allow update: if kind in ['records', 'hitches', 'usage'] && (isOffice(org) || (isMember(org) && mine() && staysMine()));
+      allow delete: if kind in ['records', 'hitches', 'usage'] && (isOffice(org) || (isMember(org) && mine()));
+    }
+
+    // machine list: office manages it; operators can only move a machine's hour meter reading forward
+    match /orgs/{org}/equipment/{id} {
+      allow read: if isMember(org) || isOffice(org);
+      allow create, delete: if isOffice(org);
+      allow update: if isOffice(org) || (isMember(org)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMeter', 'lastMeterAt', 'lastMeterBy'])
+        && request.resource.data.lastMeter is number
+        && request.resource.data.lastMeter >= resource.data.get('lastMeter', 0));
     }
 
     // shared trailer list: anyone on the crew can read it and add a trailer; office edits and retires
