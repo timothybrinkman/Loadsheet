@@ -26,11 +26,18 @@ service cloud.firestore {
       allow write: if isAdmin(org);
     }
 
-    match /orgs/{org}/records/{id} {
-      allow read: if isOffice(org) || (isMember(org) && mine());
-      allow create: if isMember(org) && staysMine();
-      allow update: if isOffice(org) || (isMember(org) && mine() && staysMine());
-      allow delete: if isOffice(org) || (isMember(org) && mine());
+    // loads / hourly jobs, and trailer hookups: same ownership rules
+    match /orgs/{org}/{kind}/{id} {
+      allow read: if kind in ['records', 'hitches'] && (isOffice(org) || (isMember(org) && mine()));
+      allow create: if kind in ['records', 'hitches'] && isMember(org) && staysMine();
+      allow update: if kind in ['records', 'hitches'] && (isOffice(org) || (isMember(org) && mine() && staysMine()));
+      allow delete: if kind in ['records', 'hitches'] && (isOffice(org) || (isMember(org) && mine()));
+    }
+
+    // shared trailer list: anyone on the crew can read it and add a trailer; office edits and retires
+    match /orgs/{org}/trailers/{id} {
+      allow read, create: if isMember(org) || isOffice(org);
+      allow update, delete: if isOffice(org);
     }
   }
 }

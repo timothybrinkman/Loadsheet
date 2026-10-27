@@ -45,7 +45,9 @@
   main{padding:16px; max-width:1280px; margin:0 auto;}
   .day-title{font-size:13px; color:#9c8f7c; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; margin:2px 0 12px;}
 
-  .tiles{display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; margin-bottom:18px;}
+  .tiles{display:grid; grid-template-columns:repeat(8, minmax(0,1fr)); gap:8px; margin-bottom:18px;}
+  .pulling{display:inline-block; margin-top:6px; margin-right:6px; font-size:10px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:#3a2000; background:var(--enroute); padding:3px 7px; border-radius:2px;}
+  .pill.h{background:var(--enroute); color:#1c1200;}
   .tile{background:var(--asphalt-2); border:1px solid var(--line-d); border-radius:var(--radius); padding:12px 10px;}
   .tile .n{font-size:28px; font-weight:900; font-family:"SF Mono",Menlo,monospace; line-height:1;}
   .tile .l{font-size:10px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#9c8f7c; margin-top:6px;}
@@ -95,7 +97,7 @@
   .toast.show{transform:translate(-50%,0);}
 
   @media (max-width: 760px){
-    .tiles{grid-template-columns:repeat(3, minmax(0,1fr));}
+    .tiles{grid-template-columns:repeat(4, minmax(0,1fr));}
     .controls{gap:8px;}
     .controls select{flex:1; min-width:0;}
   }
@@ -139,6 +141,8 @@
       <div class="tile"><div class="n" id="tTons">0</div><div class="l">Tons</div></div>
       <div class="tile"><div class="n" id="tYards">0</div><div class="l">Yards</div></div>
       <div class="tile"><div class="n" id="tHours">0</div><div class="l">Hours</div></div>
+      <div class="tile"><div class="n" id="tMiles">0</div><div class="l">Miles</div></div>
+      <div class="tile"><div class="n" id="tHead">0</div><div class="l">Head</div></div>
       <div class="tile g"><div class="n" id="tDrivers">0</div><div class="l">Drivers</div></div>
       <div class="tile g"><div class="n" id="tTrucks">0</div><div class="l">Trucks</div></div>
     </div>
@@ -148,6 +152,20 @@
 
     <h2 class="sec">Every load and clock entry</h2>
     <div class="tablewrap"><table id="tbl"></table></div>
+
+    <div id="trailerSec" style="display:none;">
+      <h2 class="sec">Trailer list</h2>
+      <div class="crew">
+        <div id="trailerRows"></div>
+        <div class="crew-add">
+          <select id="newTType"><option>Dry van</option><option>Cattle pot</option><option>Hopper</option><option>Flatbed</option><option>Step deck</option>
+            <option>Lowboy</option><option>Reefer</option><option>Belly dump</option><option>End dump</option><option>Side dump</option><option>Tanker</option><option>Other</option></select>
+          <input type="text" id="newTName" placeholder="Owner / unit #, e.g. JBS 12 (optional)">
+          <button class="btn go" id="addTrailer">Add trailer</button>
+        </div>
+        <div class="hint">Trailers you don't own that drivers hook to. Drivers pick from this list when they hook up (and can add one on the spot). Retiring a trailer hides it from the list; past hookups keep it.</div>
+      </div>
+    </div>
 
     <div id="crewSec" style="display:none;">
       <h2 class="sec">Crew list</h2>
@@ -188,6 +206,13 @@ function amt(list){
   if (list.some(l => unitOf(l) === "yd" && l.qty)) p.push(fmtNum(y) + " yd");
   return p.join(" / ");
 }
+function commas(n){ return Number(n).toLocaleString("en-US", {maximumFractionDigits: 1}); }
+function num(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+function tripTxt(l){ const p = []; if (l.head) p.push(commas(l.head) + " hd"); if (l.weight) p.push(commas(l.weight) + " lb"); if (l.miles) p.push(commas(l.miles) + " mi"); return p.join(" · "); }
+function tripTotals(list){ const s = k => list.reduce((a, l) => a + num(l[k]), 0); return tripTxt({head: s("head") || "", weight: s("weight") || "", miles: s("miles") || ""}); }
+function hitchLabel(h){ return (h.trailerType || "Trailer") + (h.trailerName ? " · " + h.trailerName : ""); }
+function hitchMiles(h){ const a = parseFloat(h.hookOdo), b = parseFloat(h.dropOdo); return !isNaN(a) && !isNaN(b) && b > a && b - a < 3000 ? Math.round((b - a) * 10) / 10 : 0; }
+function mapLink(lat, lng){ return lat ? '<a href="https://maps.google.com/?q=' + lat + ',' + lng + '" target="_blank" rel="noopener">map</a>' : ''; }
 function ranges(nums){
   nums = nums.slice().sort((a,b) => a-b); const out = []; let i = 0;
   while (i < nums.length){ let j = i; while (j+1 < nums.length && nums[j+1] === nums[j]+1) j++;
@@ -195,7 +220,7 @@ function ranges(nums){
   return out.join(", ");
 }
 
-let backend, me = null, role = null, records = new Map(), unsubAll = null, unsubCrew = null, crew = [];
+let backend, me = null, role = null, records = new Map(), hitches = new Map(), trailerList = [], unsubs = [], crew = [];
 $("day").value = localDay();
 
 // ---------- what happened on the chosen day ----------
@@ -209,21 +234,25 @@ function dayData(){
       loadsDay.push(r);
     }
   }
+  const hitchDay = Array.from(hitches.values()).filter(h => localDay(new Date(h.hookAt)) === day || (h.dropAt && localDay(new Date(h.dropAt)) === day) ||
+    (!h.dropAt && day === localDay()));
   const fD = $("fDriver").value, fT = $("fTruck").value;
   const drv = r => r.driverEmail || r.driverUid || "unknown";
   const L = loadsDay.filter(r => (!fD || drv(r) === fD) && (!fT || (r.truck || "") === fT));
   const T = timeDay.filter(x => (!fD || drv(x.job) === fD) && (!fT || (x.e.truck || "") === fT));
-  return {day, L, T, allL: loadsDay, allT: timeDay, drv};
+  const H = hitchDay.filter(h => (!fD || drv(h) === fD) && (!fT || (h.truck || "") === fT));
+  return {day, L, T, H, allL: loadsDay, allT: timeDay, allH: hitchDay, drv};
 }
 
 function render(){
-  const {day, L, T, allL, allT, drv} = dayData();
+  const {day, L, T, H, allL, allT, allH, drv} = dayData();
   $("dayTitle").textContent = longDay(day) + (day === localDay() ? " · today, live" : "");
 
   // filter choices come from the whole day
   const drivers = new Map(), trucks = new Set();
   allL.forEach(r => { drivers.set(drv(r), r.driverName || r.driverEmail || "Driver"); if (r.truck) trucks.add(r.truck); });
   allT.forEach(x => { drivers.set(drv(x.job), x.job.driverName || x.job.driverEmail || "Driver"); if (x.e.truck) trucks.add(x.e.truck); });
+  allH.forEach(h => { drivers.set(drv(h), h.driverName || h.driverEmail || "Driver"); if (h.truck) trucks.add(h.truck); });
   fillSelect($("fDriver"), "All drivers", Array.from(drivers, ([v, n]) => [v, n]));
   fillSelect($("fTruck"), "All trucks", Array.from(trucks).sort((a,b) => a.localeCompare(b, undefined, {numeric:true})).map(t => [t, truckLbl(t)]));
 
@@ -234,22 +263,32 @@ function render(){
   $("tTons").textContent = fmtNum(sumUnit(L, "t"));
   $("tYards").textContent = fmtNum(sumUnit(L, "yd"));
   $("tHours").textContent = fmtHrs(hrs);
+  // miles: what drivers typed on loads, plus odometer miles for hookups with no load miles
+  let miles = L.reduce((a, r) => a + num(r.miles), 0);
+  H.forEach(h => { if (hitchMiles(h) && !L.some(r => r.hitchId === h.id && num(r.miles))) miles += hitchMiles(h); });
+  $("tMiles").textContent = commas(Math.round(miles));
+  $("tHead").textContent = commas(L.reduce((a, r) => a + num(r.head), 0));
   $("tDrivers").textContent = dset.size;
   $("tTrucks").textContent = tset.size;
 
   // ---- board: one card per driver ----
   const byDriver = new Map();
   const slot = k => byDriver.get(k) || (byDriver.set(k, {loads: [], time: []}), byDriver.get(k));
+  const slot2 = k => { const d = slot(k); d.hitches = d.hitches || []; return d; };
   L.forEach(r => slot(drv(r)).loads.push(r));
   T.forEach(x => slot(drv(x.job)).time.push(x));
+  H.forEach(h => slot2(drv(h)).hitches.push(h));
   const board = $("board");
   if (!byDriver.size){
     board.innerHTML = '<div class="empty">Nothing logged ' + (day === localDay() ? "yet today" : "on this day") + '. Loads show up here within seconds of a driver logging them (or when their truck gets signal).</div>';
   } else {
     board.innerHTML = Array.from(byDriver.entries()).map(([k, d]) => {
-      const name = (d.loads[0] && d.loads[0].driverName) || (d.time[0] && d.time[0].job.driverName) || k;
+      d.hitches = d.hitches || [];
+      const name = (d.loads[0] && d.loads[0].driverName) || (d.time[0] && d.time[0].job.driverName) || (d.hitches[0] && d.hitches[0].driverName) || k;
+      const pulling = d.hitches.filter(h => !h.dropAt);
       const events = d.loads.map(r => ({at: r.deliveredAt || r.updatedAt, truck: r.truck, job: r.customer, kind: "load"}))
         .concat(d.time.map(x => ({at: x.e.end || x.e.start, truck: x.e.truck, job: x.job.customer, kind: x.e.end ? "clock out" : "clocked in"})))
+        .concat(d.hitches.map(h => ({at: h.dropAt || h.hookAt, truck: h.truck, job: hitchLabel(h), kind: h.dropAt ? "dropped trailer" : "hooked trailer"})))
         .sort((a,b) => (b.at || "").localeCompare(a.at || ""));
       const last = events[0];
       const running = d.time.find(x => !x.e.end);
@@ -262,9 +301,12 @@ function render(){
         list.forEach(r => { if (r.ticketNo) tickets[r.ticketNo] = (tickets[r.ticketNo] || 0) + 1; });
         const tk = Object.keys(tickets);
         const trucksUsed = Array.from(new Set(list.map(r => r.truck).filter(Boolean)));
+        const trls = Array.from(new Set(list.map(r => r.trailer).filter(Boolean)));
         return '<div class="job"><div class="jn">' + esc(h0.customer || "Untitled job") + (h0.material ? ' — ' + esc(h0.material) : '') + '</div>' +
           '<div class="jd"><span class="mono">' + list.length + '</span> load' + (list.length === 1 ? '' : 's') + ' ' + esc(ranges(list.map(r => r.loadNum || 1))) +
           (amt(list) ? ' · <span class="mono">' + esc(amt(list)) + '</span>' : '') +
+          (tripTotals(list) ? ' · <span class="mono">' + esc(tripTotals(list)) + '</span>' : '') +
+          (trls.length ? '<br>' + esc(trls.join(", ")) : '') +
           (trucksUsed.length ? ' · ' + esc(trucksUsed.map(truckLbl).join(", ")) : '') +
           (tk.length ? '<br>Ticket' + (tk.length === 1 ? ' ' : 's ') + tk.map(t => esc(t) + (tickets[t] > 1 ? ' (' + tickets[t] + ' loads)' : '')).join(", ") : '') +
           (list.some(r => !r.ticketNo) && tk.length ? '<br><b style="color:var(--orange-dark)">' + list.filter(r => !r.ticketNo).length + ' not on a ticket</b>' : '') +
@@ -279,28 +321,36 @@ function render(){
           es.map(e => esc(fmtTime(e.start)) + '–' + (e.end ? esc(fmtTime(e.end)) : '<b>now</b>') + (e.truck ? ' · ' + esc(truckLbl(e.truck)) : '')).join("<br>") +
           '<br><span class="mono">' + fmtHrs(hh) + '</span> hrs</div></div>';
       }).join("");
+      const hitchHtml = d.hitches.length ? '<div class="job"><div class="jn">Trailers</div><div class="jd">' +
+        d.hitches.sort((a,b) => a.hookAt.localeCompare(b.hookAt)).map(h => esc(hitchLabel(h)) + ' · ' + esc(fmtTime(h.hookAt)) + ' ' + mapLink(h.hookLat, h.hookLng) +
+          ' – ' + (h.dropAt ? esc(fmtTime(h.dropAt)) + ' ' + mapLink(h.dropLat, h.dropLng) : '<b>still hooked</b>') +
+          (hitchMiles(h) ? ' · <span class="mono">' + hitchMiles(h) + '</span> mi' : '') +
+          (h.hookNote || h.dropNote ? '<br><i>' + esc([h.hookNote, h.dropNote].filter(Boolean).join(" / ")) + '</i>' : '')).join('<br>') + '</div></div>' : '';
       return '<div class="dcard"><div class="dname">' + esc(name) + '</div>' +
         '<div class="dnow">' + (last ? 'Last: <b>' + esc(last.kind === "load" ? "load" : last.kind) + '</b> at ' + esc(fmtTime(last.at)) + ' · ' + esc(last.job || "") + (last.truck ? ' · <b>' + esc(truckLbl(last.truck)) + '</b>' : '') : '') + '</div>' +
+        pulling.map(h => '<span class="pulling">Pulling ' + esc(hitchLabel(h)) + ' since ' + esc(fmtTime(h.hookAt)) + '</span>').join("") +
         (running ? '<span class="onclock">On the clock · ' + esc(running.job.customer || "") + ' since ' + esc(fmtTime(running.e.start)) + '</span>' : '') +
         '<div class="dtot"><div><div class="n">' + d.loads.length + '</div><div class="l">Loads</div></div>' +
           (amt(d.loads) ? '<div><div class="n" style="font-size:18px; padding-top:8px;">' + esc(amt(d.loads)) + '</div><div class="l">Hauled</div></div>' : '') +
           (h ? '<div><div class="n">' + fmtHrs(h) + '</div><div class="l">Hours</div></div>' : '') + '</div>' +
-        jobHtml + hourHtml + '</div>';
+        jobHtml + hourHtml + hitchHtml + '</div>';
     }).join("");
   }
 
   // ---- table ----
-  const rows = L.map(r => ({at: r.deliveredAt || "", driver: r.driverName || r.driverEmail, truck: r.truck, job: r.customer, mat: r.material,
-      what: "Load #" + (r.loadNum || 1), amount: r.qty ? r.qty + " " + unitOf(r) : "", ticket: r.ticketNo || "", via: r.via}))
-    .concat(T.map(x => ({at: x.e.start, driver: x.job.driverName || x.job.driverEmail, truck: x.e.truck, job: x.job.customer, mat: x.job.material,
+  const rows = L.map(r => ({at: r.deliveredAt || "", driver: r.driverName || r.driverEmail, truck: r.truck, trailer: r.trailer, job: r.customer, mat: r.material,
+      what: "Load #" + (r.loadNum || 1), amount: r.billing === "trip" ? tripTxt(r) : r.qty ? r.qty + " " + unitOf(r) : "", ticket: r.ticketNo || "", via: r.via}))
+    .concat(H.map(h => ({at: h.hookAt, driver: h.driverName || h.driverEmail, truck: h.truck, trailer: hitchLabel(h), job: "", mat: "",
+      what: "Hooked " + fmtTime(h.hookAt) + (h.dropAt ? " · dropped " + fmtTime(h.dropAt) : ""), amount: hitchMiles(h) ? hitchMiles(h) + " mi" : "", ticket: "", hitch: true, running: !h.dropAt})))
+    .concat(T.map(x => ({at: x.e.start, driver: x.job.driverName || x.job.driverEmail, truck: x.e.truck, trailer: x.e.trailer, job: x.job.customer, mat: x.job.material,
       what: x.e.end ? fmtTime(x.e.start) + "–" + fmtTime(x.e.end) : "On clock since " + fmtTime(x.e.start),
       amount: fmtHrs(Math.max(0, entryMs(x.e)) / 3600000) + " h", ticket: "", via: "", time: true, running: !x.e.end})))
     .sort((a,b) => (b.at || "").localeCompare(a.at || ""));
-  $("tbl").innerHTML = '<tr><th>Time</th><th>Driver</th><th>Truck</th><th>Job</th><th>Material</th><th></th><th style="text-align:right">Amount</th><th>Ticket</th><th></th></tr>' +
-    (rows.length ? rows.map(r => '<tr><td class="mono">' + esc(fmtTime(r.at)) + '</td><td>' + esc(r.driver) + '</td><td>' + esc(truckLbl(r.truck)) + '</td><td>' + esc(r.job) +
+  $("tbl").innerHTML = '<tr><th>Time</th><th>Driver</th><th>Truck</th><th>Trailer</th><th>Job</th><th>Material</th><th></th><th style="text-align:right">Amount</th><th>Ticket</th><th></th></tr>' +
+    (rows.length ? rows.map(r => '<tr><td class="mono">' + esc(fmtTime(r.at)) + '</td><td>' + esc(r.driver) + '</td><td>' + esc(truckLbl(r.truck)) + '</td><td>' + esc(r.trailer || "") + '</td><td>' + esc(r.job) +
       '</td><td>' + esc(r.mat) + '</td><td>' + esc(r.what) + '</td><td class="num">' + esc(r.amount) + '</td><td class="mono">' + esc(r.ticket) + '</td><td>' +
-      (r.time ? '<span class="pill ' + (r.running ? 'r' : 't') + '">' + (r.running ? 'On clock' : 'Time') + '</span>' : r.via ? '<span class="pill a">Auto</span>' : '') + '</td></tr>').join("")
-      : '<tr><td colspan="9" style="color:var(--muted); padding:16px;">Nothing yet.</td></tr>');
+      (r.hitch ? '<span class="pill h">' + (r.running ? 'Hooked' : 'Trailer') + '</span>' : r.time ? '<span class="pill ' + (r.running ? 'r' : 't') + '">' + (r.running ? 'On clock' : 'Time') + '</span>' : r.via ? '<span class="pill a">Auto</span>' : '') + '</td></tr>').join("")
+      : '<tr><td colspan="10" style="color:var(--muted); padding:16px;">Nothing yet.</td></tr>');
   render.rows = rows;
 }
 function fillSelect(sel, allLabel, opts){
@@ -313,12 +363,15 @@ function fillSelect(sel, allLabel, opts){
 function csvCell(v){ v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
 function stamp(iso){ if (!iso) return ""; const d = new Date(iso); return localDay(d) + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0"); }
 $("csvBtn").addEventListener("click", () => {
-  const {day, L, T} = dayData();
-  const head = ["Date","Driver","Driver email","Truck","Job / Customer","Type","Load #","Material","Amount","Unit","Ticket #","Hauled at","Clock in","Clock out","Hours","Pickup","Drop-off","Auto-counted","Notes"];
-  const rows = L.map(r => [day, r.driverName, r.driverEmail, r.truck, r.customer, "Load", r.loadNum || 1, r.material, r.qty, r.qty ? (unitOf(r) === "yd" ? "yd" : "tons") : "",
-      r.ticketNo, stamp(r.deliveredAt), "", "", "", r.pickup && r.pickup.address, r.dropoff && r.dropoff.address, r.via === "gps" ? "GPS" : r.via === "link" ? "Link" : "", r.notes])
-    .concat(T.map(x => [day, x.job.driverName, x.job.driverEmail, x.e.truck, x.job.customer, "Time", "", x.job.material, "", "", "", "", stamp(x.e.start), stamp(x.e.end),
-      x.e.end ? fmtHrs(entryMs(x.e) / 3600000) : "", x.job.pickup && x.job.pickup.address, x.job.dropoff && x.job.dropoff.address, "", x.job.notes]));
+  const {day, L, T, H} = dayData();
+  const head = ["Date","Driver","Driver email","Truck","Trailer","Job / Customer","Type","Load #","Material","Amount","Unit","Ticket #","Head","Weight (lb)","Miles","Hauled at","Clock in","Clock out","Hours","Pickup","Drop-off","Auto-counted","Notes"];
+  const ll = (lat, lng) => lat ? lat.toFixed(5) + ", " + lng.toFixed(5) : "";
+  const rows = L.map(r => [day, r.driverName, r.driverEmail, r.truck, r.trailer, r.customer, "Load", r.loadNum || 1, r.material, r.qty, r.qty ? (unitOf(r) === "yd" ? "yd" : "tons") : "",
+      r.ticketNo, r.head, r.weight, r.miles, stamp(r.deliveredAt), "", "", "", r.pickup && r.pickup.address, r.dropoff && r.dropoff.address, r.via === "gps" ? "GPS" : r.via === "link" ? "Link" : "", r.notes])
+    .concat(T.map(x => [day, x.job.driverName, x.job.driverEmail, x.e.truck, x.e.trailer, x.job.customer, "Time", "", x.job.material, "", "", "", "", "", "", "", stamp(x.e.start), stamp(x.e.end),
+      x.e.end ? fmtHrs(entryMs(x.e) / 3600000) : "", x.job.pickup && x.job.pickup.address, x.job.dropoff && x.job.dropoff.address, "", x.job.notes]))
+    .concat(H.map(h => [day, h.driverName, h.driverEmail, h.truck, hitchLabel(h), "", "Trailer", "", h.trailerType, "", "", "", "", "", hitchMiles(h) || "", "", stamp(h.hookAt), stamp(h.dropAt),
+      h.dropAt ? fmtHrs((new Date(h.dropAt) - new Date(h.hookAt)) / 3600000) : "", ll(h.hookLat, h.hookLng), ll(h.dropLat, h.dropLng), "", [h.hookNote, h.dropNote].filter(Boolean).join(" / ")]));
   if (!rows.length){ toast("Nothing to export for this day"); return; }
   const csv = "﻿" + [head].concat(rows).map(r => r.map(csvCell).join(",")).join("\r\n");
   const a = document.createElement("a");
@@ -353,6 +406,27 @@ $("addMember").addEventListener("click", () => {
     .catch(err => toast("Couldn't add: " + (err.code || err)));
 });
 
+// ---------- trailer list ----------
+function renderTrailers(){
+  const list = trailerList.filter(t => !t.retired).sort((a,b) => (a.type + (a.name||"")).localeCompare(b.type + (b.name||"")));
+  $("trailerRows").innerHTML = list.length ? list.map(t => '<div class="crew-row"><span class="em">' + esc(t.type) + (t.name ? ' · ' + esc(t.name) : '') +
+    (t.addedBy ? ' <span style="color:#9c8f7c">· added by ' + esc(t.addedBy) + '</span>' : '') + '</span><button class="btn" data-retire="' + esc(t.id) + '">Retire</button></div>').join("")
+    : '<div class="hint">No trailers yet.</div>';
+}
+$("trailerRows").addEventListener("click", e => {
+  const b = e.target.closest("[data-retire]"); if (!b) return;
+  const t = trailerList.find(x => x.id === b.dataset.retire); if (!t) return;
+  if (!confirm("Retire " + t.type + (t.name ? " · " + t.name : "") + "? It disappears from drivers' list; past hookups keep it.")) return;
+  const c = Object.assign({}, t, {retired: true}); delete c.id;
+  backend.put("trailers", t.id, c).then(() => toast("Retired")).catch(err => toast("Couldn't retire: " + (err.code || err)));
+});
+$("addTrailer").addEventListener("click", () => {
+  const t = {type: $("newTType").value, name: $("newTName").value.trim(), addedBy: me.email, addedAt: new Date().toISOString()};
+  const id = "T" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  backend.put("trailers", id, t).then(() => { $("newTName").value = ""; toast("Added " + t.type + (t.name ? " · " + t.name : "")); })
+    .catch(err => toast("Couldn't add: " + (err.code || err)));
+});
+
 // ---------- controls ----------
 ["fDriver","fTruck"].forEach(id => $(id).addEventListener("change", render));
 $("day").addEventListener("change", render);
@@ -376,9 +450,8 @@ async function start(){
   window.addEventListener("online", () => live("Live", "ok"));
   window.addEventListener("offline", () => live("Offline · showing last data", "warn"));
   backend.onAuth(async u => {
-    if (unsubAll){ unsubAll(); unsubAll = null; }
-    if (unsubCrew){ unsubCrew(); unsubCrew = null; }
-    records = new Map(); me = u; role = null;
+    unsubs.forEach(f => { try { f(); } catch (e) {} }); unsubs = [];
+    records = new Map(); hitches = new Map(); me = u; role = null;
     $("signOutBtn").style.display = u ? "" : "none";
     if (!u){ gate("Sign in with the Google account the admin added to the crew list as Office or Admin.", true); live("Signed out", "warn"); return; }
     gate("Checking access for " + esc(u.email) + "…", false);
@@ -394,12 +467,14 @@ async function start(){
     }
     $("gate").style.display = "none"; $("app").style.display = ""; $("controls").style.display = "";
     $("crewSec").style.display = role === "admin" ? "" : "none";
+    $("trailerSec").style.display = "";
     live(navigator.onLine ? "Live" : "Offline · showing last data", navigator.onLine ? "ok" : "warn");
-    unsubAll = backend.watchAll(snap => {
-      snap.changes.forEach(ch => { if (ch.type === "removed") records.delete(ch.id); else records.set(ch.id, Object.assign({id: ch.id}, ch.data)); });
-      render();
-    }, err => { live("Error: " + (err.code || err), "warn"); });
-    if (role === "admin") unsubCrew = backend.watchMembers(list => { crew = list; renderCrew(); }, () => {});
+    const onErr = err => { live("Error: " + (err.code || err), "warn"); };
+    const into = map => snap => { snap.changes.forEach(ch => { if (ch.type === "removed") map.delete(ch.id); else map.set(ch.id, Object.assign({id: ch.id}, ch.data)); }); render(); };
+    unsubs.push(backend.watchAll("records", into(records), onErr));
+    unsubs.push(backend.watchAll("hitches", into(hitches), onErr));
+    unsubs.push(backend.watchCol("trailers", list => { trailerList = list; renderTrailers(); }, () => {}));
+    if (role === "admin") unsubs.push(backend.watchMembers(list => { crew = list; renderCrew(); }, () => {}));
     render();
   });
 }

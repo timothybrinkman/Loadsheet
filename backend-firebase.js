@@ -1,8 +1,10 @@
 // Thin wrapper around Firebase so the rest of Load Sheet never touches the SDK directly.
 // Data layout:
 //   orgs/{org}/members/{email}   { role: "driver" | "office" | "admin", name? }
-//   orgs/{org}/records/{id}      one load, or one hourly job (with its time entries),
-//                                plus driverUid / driverName / driverEmail / updatedAt
+//   orgs/{org}/records/{id}      one load, or one hourly job (with its time entries)
+//   orgs/{org}/hitches/{id}      one trailer hookup: hook time/place/odometer, drop time/place/odometer
+//   orgs/{org}/trailers/{id}     the crew's shared trailer list { type, name }
+// records and hitches also carry driverUid / driverName / driverEmail / updatedAt
 import {
   initializeApp, getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
   signOut, onAuthStateChanged, setPersistence, browserLocalPersistence,
@@ -27,7 +29,7 @@ export async function createBackend(config, org) {
     db = initializeFirestore(app, { ignoreUndefinedProperties: true });
   }
 
-  const recCol = collection(db, "orgs", org, "records");
+  const col = name => collection(db, "orgs", org, name);
   const toUser = u => u && { uid: u.uid, email: (u.email || "").toLowerCase(), name: u.displayName || u.email || "Driver" };
 
   function snapHandler(cb) {
@@ -60,14 +62,17 @@ export async function createBackend(config, org) {
       const s = await getDoc(doc(db, "orgs", org, "members", email));
       return s.exists() ? s.data() : null;
     },
-    watchMine(uid, cb, onErr) {
-      return onSnapshot(query(recCol, where("driverUid", "==", uid)), { includeMetadataChanges: false }, snapHandler(cb), onErr);
+    watchMine(name, uid, cb, onErr) {
+      return onSnapshot(query(col(name), where("driverUid", "==", uid)), { includeMetadataChanges: false }, snapHandler(cb), onErr);
     },
-    watchAll(cb, onErr) {
-      return onSnapshot(recCol, snapHandler(cb), onErr);
+    watchAll(name, cb, onErr) {
+      return onSnapshot(col(name), snapHandler(cb), onErr);
     },
-    put(id, data) { return setDoc(doc(recCol, id), data); },
-    del(id) { return deleteDoc(doc(recCol, id)); },
+    watchCol(name, cb, onErr) {
+      return onSnapshot(col(name), s => cb(s.docs.map(d => Object.assign({ id: d.id }, d.data()))), onErr);
+    },
+    put(name, id, data) { return setDoc(doc(col(name), id), data); },
+    del(name, id) { return deleteDoc(doc(col(name), id)); },
     waitSynced() { return waitForPendingWrites(db); },
     watchMembers(cb, onErr) {
       return onSnapshot(collection(db, "orgs", org, "members"),
