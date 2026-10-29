@@ -592,6 +592,7 @@ $("crewRows").addEventListener("click", e => {
 $("addMember").addEventListener("click", () => {
   const email = $("newEmail").value.trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ toast("Enter a full email address"); $("newEmail").focus(); return; }
+  if (me && email === me.email){ toast("That's you. Your own role can't be changed here."); return; }
   backend.setMember(email, {role: $("newRole").value}).then(() => { $("newEmail").value = ""; toast("Added " + email + ". They can sign in now."); })
     .catch(err => toast("Couldn't add: " + (err.code || err)));
 });
@@ -926,7 +927,8 @@ async function start(){
     let m = null;
     try {
       m = await backend.getMember(u.email);
-      if (!m){ try { await backend.setMember(u.email, {role: "admin", name: u.name}); m = {role: "admin"}; } catch(e){} }
+      // the owner is always admin: repair a missing or downgraded entry (the security rules refuse anyone else)
+      if (!m || (m.role !== "office" && m.role !== "admin")){ try { await backend.setMember(u.email, {role: "admin", name: u.name}); m = {role: "admin"}; } catch(e){} }
     } catch (e) {}
     role = m && m.role;
     if (role !== "office" && role !== "admin"){
