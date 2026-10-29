@@ -309,6 +309,16 @@
   #officeLink{flex:1; display:flex; align-items:center; justify-content:center; text-decoration:none; padding:12px 8px; border-radius:var(--radius);
     font-weight:800; text-transform:uppercase; font-size:12px; letter-spacing:0.03em; background:var(--paper); color:var(--ink);}
 
+  /* ---------- jobs from the office ---------- */
+  .office-bar{display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin:-2px 0 8px; font-size:12.5px;}
+  .office-tag{font-size:10px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; padding:3px 7px; border-radius:2px; background:var(--ink); color:var(--paper);}
+  .new-tag{font-size:10px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; padding:3px 7px; border-radius:2px; background:var(--orange); color:#1c1200; animation:pulse 1.6s ease-in-out infinite;}
+  @media (prefers-reduced-motion: reduce){ .new-tag{animation:none;} }
+  .office-bar a{color:var(--ink); font-weight:800;}
+  .office-done{font-size:10px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; padding:3px 7px; border-radius:2px; background:var(--delivered); color:#fff;}
+  .office-cancel{font-size:10px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; padding:3px 7px; border-radius:2px; background:var(--cancelled); color:#fff;}
+  .done-btn{display:block; width:100%; margin-top:10px; padding:10px; background:transparent; border:1px dashed var(--ink); color:var(--ink); border-radius:var(--radius); font-weight:900; font-size:12px; letter-spacing:0.05em; text-transform:uppercase;}
+
   /* ---------- loads / equipment tabs ---------- */
   .view-tabs{display:flex; margin-top:10px; border:1px solid #4a463f; border-radius:var(--radius); overflow:hidden;}
   .view-tabs button{flex:1; background:transparent; border:0; color:#c9bfae; padding:9px 6px; font-size:12px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase;}
@@ -951,7 +961,7 @@
         <h3>Backup</h3>
         <p>Without crew sync, your loads live only on this device: clearing the browser's site data or uninstalling the app erases them. A backup file saves everything; keep it in Files/Downloads or email it to yourself. It can also move loads between devices.</p>
         <p>Last backup: <span class="backup-status" id="backupStatus">never</span></p>
-        <p style="margin-top:6px; font-size:11px;">App version 2026.10.26-5</p>
+        <p style="margin-top:6px; font-size:11px;">App version 2026.10.29-1</p>
         <div class="btn-row">
           <button class="go" id="backupBtn">Save backup</button>
           <label class="icon-btn" for="restoreFile" style="flex:1; justify-content:center; text-transform:uppercase; font-size:12px; font-weight:800; letter-spacing:0.03em;">Restore backup</label>
@@ -1057,6 +1067,11 @@
     const lng = lat !== null ? Math.round(c[1] * 1e6) / 1e6 : null;
     const short = !!link && /(maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs)/i.test(link) && lat === null;
     if(!link && lat === null) return {address:text, link:"", lat:null, lng:null};
+    // "Central Sand pit 41.4401, -97.3712": keep the name, use the pin
+    if(!link && lat !== null){
+      const name = text.replace(/-?\d{1,3}\.\d+\s*[, ]\s*-?\d{1,3}\.\d+/, "").replace(/\d{1,3}\s*°[^NSEW]*[NS][\s,]+\d{1,3}\s*°[^NSEW]*[EW]/i, "").replace(/[\s,:\-]+$|^[\s,:\-]+/g, "").trim();
+      return {address: name && name.length < 80 ? name : "Pin " + lat.toFixed(5) + ", " + lng.toFixed(5), link: "", lat: lat, lng: lng, short: false};
+    }
     let address = "";
     if(link){
       let q = link.match(/[?&](?:q|query|destination|daddr)=([^&]+)/i);
@@ -1209,6 +1224,7 @@
     if(rec.truck) rememberTruck(rec.truck);
     if(currentMode === "trip"){ rec.qty = ""; rec.perLoad = ""; }
     const idx = loads.findIndex(l => l.id === id);
+    if(idx >= 0) ["assignmentId", "contact"].forEach(k => { if(loads[idx][k] !== undefined) rec[k] = loads[idx][k]; });
     if(currentMode === "hourly"){
       const old = idx >= 0 ? loads[idx] : null;
       Object.assign(rec, {
@@ -1268,8 +1284,12 @@
   }
 
   function deleteLoad(id){
+    const gone = loads.find(l => l.id === id);
     loads = loads.filter(l => l.id !== id);
     persist();
+    if(gone && gone.assignmentId && !loads.some(l => l.assignmentId === gone.assignmentId)){
+      try{ window.LoadSheetCloud && window.LoadSheetCloud.markAssignment(gone.assignmentId, {status: "removed"}); }catch(e){}
+    }
     render();
   }
 
@@ -1329,7 +1349,8 @@
       if(!jobCreated[k] || l.createdAt < jobCreated[k]) jobCreated[k] = l.createdAt;
     });
     filtered.sort(function(a,b){
-      return (b.date||"").localeCompare(a.date||"")
+      return (isNewJob(jobKey(b)) - isNewJob(jobKey(a)))
+        || (b.date||"").localeCompare(a.date||"")
         || jobCreated[jobKey(b)].localeCompare(jobCreated[jobKey(a)])
         || jobKey(a).localeCompare(jobKey(b))
         || (a.loadNum||1) - (b.loadNum||1);
@@ -1480,6 +1501,7 @@
       status: "Delivered", deliveredAt: now, notes: "", createdAt: now,
       truck: curTruck(), via: via,
       autoAt: src.autoAt || "", autoRadius: src.autoRadius || 152,
+      assignmentId: src.assignmentId || "", contact: src.contact || "",
       billing: tripJob ? "trip" : "", askFields: tripJob ? (head0.askFields || []) : [],
       head: ticket && tripJob ? (ticket.head || "") : "", weight: ticket && tripJob ? (ticket.weight || "") : "", miles: ticket && tripJob ? (ticket.miles || "") : "",
       trailer: hitch ? hitchLabel(hitch) : "", hitchId: hitch ? hitch.id : ""
@@ -1603,6 +1625,7 @@
         '<div><div class="card-customer">' + escapeHtml(head.customer || "Untitled job") + '</div>' +
         '<div class="card-date">' + dayTxt + '</div></div>' +
       '</div>' +
+      officeBar(head) +
       routeHtml(head) +
       '<div class="tally">' +
         '<div><div class="big">' + delivered.length + '</div><div class="big-lbl">Loads hauled</div></div>' +
@@ -1629,8 +1652,10 @@
         '<button class="more-btn">Add several</button>' +
         '<button class="edit-btn">Edit job</button>' +
       '</div>' +
+      doneButton(head) +
       rows;
 
+    bindOffice(card, head);
     card.querySelector(".plus-one").addEventListener("click", function(){ quickAddLoad(latest); });
     card.querySelector(".toggle-btn").addEventListener("click", function(){ openJobs[key] = !openJobs[key]; render(); });
     card.querySelector(".more-btn").addEventListener("click", function(){ openMoreModal(latest); });
@@ -1832,6 +1857,7 @@
         '<div><div class="card-customer">' + escapeHtml(job.customer || "Untitled job") + '</div>' +
         '<div class="card-date">' + fmtDay(job.date) + (job.material ? ' · ' + escapeHtml(job.material) : '') + '</div></div>' +
       '</div>' +
+      officeBar(job) +
       ((job.pickup.address || job.dropoff.address) ? routeHtml(job) : '') +
       '<div class="tally">' +
         '<div><div class="big">' + fmtHrs(totalH) + '</div><div class="big-lbl">Hours total</div></div>' +
@@ -1852,6 +1878,7 @@
         '<button class="danger del-btn">Delete</button>' +
       '</div>' +
       rows;
+    if(job.assignmentId){ card.insertAdjacentHTML("beforeend", doneButton(job)); bindOffice(card, job); }
     card.querySelector(".clock-btn").addEventListener("click", function(){ toggleClock(job); });
     card.querySelector(".toggle-btn").addEventListener("click", function(){ openJobs[key] = !openJobs[key]; render(); });
     card.querySelector(".addtime-btn").addEventListener("click", function(){ openTimeModal(job, null); });
@@ -1884,6 +1911,7 @@
         '<div><div class="card-customer">' + escapeHtml(l.customer || "Untitled load") + '</div>' +
         '<div class="card-date">' + dateFmt + '</div>' + badge + '</div>' +
       '</div>' +
+      officeBar(l) +
       '<div class="route">' +
         '<div class="leg"><span class="dot pickup"></span><span>' + (l.pickup.address ? '<a href="'+mapsHref(l.pickup)+'" target="_blank" rel="noopener">'+escapeHtml(l.pickup.address)+'</a>' : '<span style="color:var(--muted)">No pickup set</span>') + '</span></div>' +
         '<div class="leg"><span class="dot dropoff"></span><span>' + (l.dropoff.address ? '<a href="'+mapsHref(l.dropoff)+'" target="_blank" rel="noopener">'+escapeHtml(l.dropoff.address)+'</a>' : '<span style="color:var(--muted)">No drop-off set</span>') + '</span></div>' +
@@ -1903,7 +1931,9 @@
         '<button class="plus-one small">+1 Load</button>' +
         '<button class="edit-btn">Edit</button>' +
         '<button class="danger del-btn">Delete</button>' +
-      '</div>';
+      '</div>' +
+      doneButton(l);
+    bindOffice(card, l);
     card.querySelector(".edit-btn").addEventListener("click", function(){ openLoadModal(l); });
     const adv = card.querySelector(".adv-btn");
     if(adv) adv.addEventListener("click", function(){ setStatus(l, NEXT_STATUS[l.status]); persist(); render(); });
@@ -1976,6 +2006,7 @@
         material: src.material, qty: qty,
         unit: unitOf(src), ticketMode: !!src.ticketMode, ticketNo: "",
         billing: src.billing === "trip" ? "trip" : "", askFields: src.askFields || [],
+        assignmentId: src.assignmentId || "", contact: src.contact || "",
         status: "Scheduled", notes: "", createdAt: now
       });
     }
@@ -3257,6 +3288,124 @@
   document.getElementById("u_saveAnother").addEventListener("click", function(){ saveUsage(true); });
   document.getElementById("logEquipBtn").addEventListener("click", function(){ openUsageModal(null); });
 
+  // ================= JOBS FROM THE OFFICE =================
+  const ASSIGN_KEY = "loadsheet_assignments_v1", APPLIED_KEY = "loadsheet_assign_applied_v1", NEWJOBS_KEY = "loadsheet_newjobs_v1";
+  let assignments = [];
+  const seenSent = {};
+  function readJSON(k, d){ try{ return JSON.parse(localStorage.getItem(k)) || d; }catch(e){ return d; } }
+  function writeJSON(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  function loadAssignments(){ assignments = readJSON(ASSIGN_KEY, []); }
+  function assignmentOf(rec){ return rec && rec.assignmentId ? assignments.find(a => a.id === rec.assignmentId) : null; }
+  function isNewJob(key){ return readJSON(NEWJOBS_KEY, {})[key] ? 1 : 0; }
+  function clearNew(key){ const n = readJSON(NEWJOBS_KEY, {}); if(n[key]){ delete n[key]; writeJSON(NEWJOBS_KEY, n); } }
+  function blankPt(p){ return {address: (p && p.address) || "", link: (p && p.link) || "", lat: p && p.lat != null ? p.lat : null, lng: p && p.lng != null ? p.lng : null}; }
+  function jobFields(a){
+    const m = a.measure || "fixed";
+    return {customer: a.customer || "", pickup: blankPt(a.pickup), dropoff: blankPt(a.dropoff), material: a.material || "",
+      unit: a.unit === "yd" ? "yd" : "t", ticketMode: m === "ticket", billing: m === "trip" ? "trip" : m === "hourly" ? "hourly" : "",
+      askFields: m === "trip" ? (a.askFields || []) : [], perLoad: m === "fixed" ? (a.perLoad || "") : "", notes: a.notes || "",
+      contact: a.contact || "", assignmentId: a.id};
+  }
+  function makeJob(a){
+    const head = "A-" + a.id, f = jobFields(a), now = new Date().toISOString();
+    if(f.billing === "hourly"){
+      loads.unshift(Object.assign({id: head, jobId: head, loadNum: 1, entries: [], status: "Scheduled", date: a.date || localDay(), qty: "", createdAt: a.createdAt || now}, f));
+      return;
+    }
+    const n = Math.max(1, Math.min(99, parseInt(a.plannedLoads, 10) || 1));
+    for(let i = n; i >= 1; i--){
+      loads.unshift(Object.assign({id: i === 1 ? head : head + "-" + i, jobId: head, loadNum: i, status: "Scheduled", date: a.date || localDay(),
+        qty: f.perLoad, truck: "", ticketNo: "", createdAt: a.createdAt || now}, f));
+    }
+  }
+  function setAssignments(list){
+    assignments = list;
+    writeJSON(ASSIGN_KEY, list);
+    const applied = readJSON(APPLIED_KEY, {}), fresh = readJSON(NEWJOBS_KEY, {});
+    const added = [], updated = [];
+    list.forEach(function(a){
+      const ver = a.updatedAt || a.createdAt || "x";
+      const sibs = loads.filter(l => l.assignmentId === a.id);
+      const closed = a.status === "cancelled" || a.status === "removed" || a.status === "done";
+      if(!sibs.length){
+        if(applied[a.id] || closed) return;                       // already handled here, or nothing to haul
+        makeJob(a); applied[a.id] = ver; fresh["A-" + a.id] = true; added.push(a.customer || "a job");
+        return;
+      }
+      if(ver > (applied[a.id] || "")){
+        if(applied[a.id]){
+          const f = jobFields(a);
+          sibs.forEach(function(x){
+            ["customer", "pickup", "dropoff", "material", "unit", "ticketMode", "askFields", "notes", "contact"].forEach(k => x[k] = JSON.parse(JSON.stringify(f[k])));
+            if(x.billing !== "hourly") x.billing = f.billing === "hourly" ? x.billing : f.billing;
+            if(x.status === "Scheduled" && f.perLoad) x.qty = f.perLoad;
+            x.perLoad = f.perLoad;
+            if(a.status === "cancelled" && (x.status === "Scheduled" || x.status === "En Route")) x.status = "Cancelled";
+            if(a.status === "cancelled") delete fresh[jobKey(x)];
+          });
+          // office raised the planned count: add the extra planned loads
+          const want = parseInt(a.plannedLoads, 10) || 0, have = sibs.length;
+          if(sibs[0].billing !== "hourly" && want > have){
+            const head = sibs.find(x => x.loadNum === 1) || sibs[0];
+            for(let i = have + 1; i <= want; i++){
+              loads.unshift(Object.assign({}, JSON.parse(JSON.stringify(head)), {id: "A-" + a.id + "-" + i, loadNum: i, status: "Scheduled", deliveredAt: null,
+                qty: f.perLoad, ticketNo: "", truck: "", trailer: "", hitchId: "", via: "", head: "", weight: "", miles: "", updatedAt: undefined}));
+            }
+          }
+          updated.push((a.status === "cancelled" ? "Office cancelled " : "Office updated ") + (a.customer || "a job"));
+        }
+        applied[a.id] = ver;
+      }
+    });
+    writeJSON(APPLIED_KEY, applied); writeJSON(NEWJOBS_KEY, fresh);
+    if(added.length || updated.length){ persist(); setView("loads"); }
+    render();
+    markSeen();
+    if(added.length) flash("New from the office: " + added.join(", "));
+    else if(updated.length) flash(updated.join(" · "));
+  }
+  // the office sees "Seen" once the job has been on screen
+  function markSeen(){
+    if(document.hidden || !window.LoadSheetCloud) return;
+    assignments.forEach(function(a){
+      if(!a.seenAt && !seenSent[a.id] && loads.some(l => l.assignmentId === a.id)){
+        seenSent[a.id] = true;
+        try{ window.LoadSheetCloud.markAssignment(a.id, {seenAt: new Date().toISOString()}); }catch(e){}
+      }
+    });
+  }
+  document.addEventListener("visibilitychange", markSeen);
+  function officeBar(rec){
+    if(!rec.assignmentId) return "";
+    const a = assignmentOf(rec), key = jobKey(rec);
+    const phone = (rec.contact || "").match(/(\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]\d{4})/);
+    return '<div class="office-bar"><span class="office-tag">From office</span>' +
+      (isNewJob(key) ? '<span class="new-tag">New</span>' : '') +
+      (a && a.status === "done" ? '<span class="office-done">Done · office notified</span>' : '') +
+      (a && a.status === "cancelled" ? '<span class="office-cancel">Cancelled by office</span>' : '') +
+      (rec.contact ? (phone ? '<a href="tel:' + phone[1].replace(/[^\d]/g, "") + '">📞 ' + escapeHtml(rec.contact) + '</a>' : '<span>' + escapeHtml(rec.contact) + '</span>') : '') +
+      '</div>';
+  }
+  function doneButton(rec){
+    const a = assignmentOf(rec);
+    return a && a.status !== "done" && a.status !== "cancelled" ? '<button class="done-btn">✓ Job done (tell the office)</button>' : '';
+  }
+  function bindOffice(card, rec){
+    if(!rec.assignmentId) return;
+    const key = jobKey(rec);
+    if(isNewJob(key)) card.addEventListener("click", function(){ clearNew(key); setTimeout(render, 0); }, true);
+    const b = card.querySelector(".done-btn");
+    if(b) b.addEventListener("click", function(){
+      const a = assignmentOf(rec); if(!a) return;
+      if(!confirm("Mark " + (rec.customer || "this job") + " done? The office will see it's finished.")) return;
+      a.status = "done"; writeJSON(ASSIGN_KEY, assignments);
+      loads.filter(l => l.assignmentId === a.id && (l.status === "Scheduled" || l.status === "En Route")).forEach(l => l.status = "Cancelled");
+      persist(); render();
+      try{ window.LoadSheetCloud.markAssignment(a.id, {status: "done", doneAt: new Date().toISOString()}); }catch(e){}
+      flash("Marked done. The office has it.");
+    });
+  }
+
   // ---------- hooks for crew sync (cloud.js) ----------
   window.LoadSheetApp = {
     getLoads: function(){ return loads; },
@@ -3265,6 +3414,7 @@
     getHitches: function(){ return hitches; },
     getTrailers: function(){ return trailers; },
     getUsage: function(){ return usage; },
+    setAssignments: setAssignments,
     setUsage: function(arr){ usage = arr; persistUsageQuiet(); if(document.body.classList.contains("view-equip")) renderEquip(); },
     persistUsageQuiet: persistUsageQuiet,
     setEquipment: function(list){
@@ -3292,6 +3442,7 @@
   load();
   loadHitches();
   loadUsage();
+  loadAssignments();
   render();
   renderBackupStatus();
   renderTruckChip();
@@ -3321,7 +3472,7 @@
       }).catch(function(){});
     });
   }
-  window.LOADSHEET_VERSION = "2026.10.26-5";
+  window.LOADSHEET_VERSION = "2026.10.29-1";
 })();
 </script>
 <script type="module" src="cloud.js"></script>

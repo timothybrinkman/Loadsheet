@@ -53,10 +53,39 @@
   .shop-row .btn{background:var(--ink); color:var(--paper); border-color:var(--ink);}
   .sev{font-size:10px; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; padding:3px 7px; border-radius:2px; color:#fff; background:var(--enroute);}
   .sev.down{background:var(--cancelled);}
+  .sev.fixed{background:var(--delivered);}
   .svc{font-size:10px; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; padding:3px 7px; border-radius:2px; white-space:nowrap;}
   .svc.ok{background:#dfeee4; color:#2b6845;} .svc.soon{background:#f6e5bf; color:#7a5300;} .svc.over{background:var(--cancelled); color:#fff;}
   td .btn{padding:6px 9px; font-size:12px; background:var(--ink); color:var(--paper); border-color:var(--ink);}
   .pill.e{background:#6b5b4f;}
+  /* dispatch */
+  .dispatch{display:grid; grid-template-columns:minmax(0, 1.1fr) minmax(0, 1fr); gap:14px; align-items:start;}
+  @media (max-width: 900px){ .dispatch{grid-template-columns:1fr;} }
+  .panel{background:var(--asphalt-2); border:1px solid var(--line-d); border-radius:var(--radius); padding:14px;}
+  .panel h3{margin:0 0 10px; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; color:#c9bfae;}
+  .f{margin-bottom:10px;}
+  .f label{display:block; font-size:10.5px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#9c8f7c; margin-bottom:4px;}
+  .f input, .f select, .f textarea{width:100%; background:var(--asphalt); border:1px solid var(--line-d); color:var(--paper); border-radius:var(--radius); padding:9px 10px; font-size:14px;}
+  .f textarea{min-height:64px; resize:vertical; font-family:inherit;}
+  .f2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .f3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+  .fh{font-size:11.5px; color:#9c8f7c; margin-top:4px; line-height:1.4;}
+  .fh.ok{color:#6fc28f;}
+  .chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .chips label{display:flex; align-items:center; gap:6px; padding:7px 10px; border:1px solid #4a463f; border-radius:20px; font-size:13px; font-weight:700; cursor:pointer; text-transform:none; letter-spacing:0; color:var(--paper); margin:0;}
+  .chips label:has(input:checked){background:var(--paper); color:var(--ink); border-color:var(--paper);}
+  .chips input{accent-color:var(--orange);}
+  .email-box{min-height:110px !important; font-family:"SF Mono",Menlo,monospace !important; font-size:12.5px !important;}
+  .alist{display:flex; flex-direction:column; gap:8px;}
+  .arow{background:var(--paper); color:var(--ink); border-radius:var(--radius); padding:10px 12px; font-size:13px; line-height:1.45;}
+  .arow .top{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .arow .who{font-weight:900;}
+  .arow .what{color:var(--muted); font-size:12px;}
+  .arow .acts{display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;}
+  .arow .acts .btn{padding:6px 10px; font-size:12px; background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .st{font-size:10px; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; padding:3px 7px; border-radius:2px; color:#fff; background:var(--scheduled);}
+  .st.seen{background:#4f6b80;} .st.hauling{background:var(--enroute); color:#1c1200;} .st.done{background:var(--delivered);} .st.cancelled, .st.removed{background:#8a8070;}
+  .prog{margin-left:auto; font-family:"SF Mono",Menlo,monospace; font-weight:900;}
   .pulling{display:inline-block; margin-top:6px; margin-right:6px; font-size:10px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:#3a2000; background:var(--enroute); padding:3px 7px; border-radius:2px;}
   .pill.h{background:var(--enroute); color:#1c1200;}
   .tile{background:var(--asphalt-2); border:1px solid var(--line-d); border-radius:var(--radius); padding:12px 10px;}
@@ -159,6 +188,50 @@
       <div class="tile g"><div class="n" id="tTrucks">0</div><div class="l">Trucks</div></div>
     </div>
 
+    <div id="dispatchSec" style="display:none;">
+      <h2 class="sec">Dispatch</h2>
+      <div class="dispatch">
+        <div class="panel">
+          <h3 id="jobFormTitle">New job</h3>
+          <div class="f">
+            <label>Paste a load email (optional)</label>
+            <textarea class="email-box" id="emailIn" placeholder="Paste the email here, then Fill from email. It picks up the customer, phone, pickup/drop-off (addresses or map pins), material, tons/yards, number of loads and date."></textarea>
+            <div style="display:flex; gap:8px; margin-top:6px;"><button class="btn" id="emailFill">Fill from email</button><span class="fh" id="emailHint"></span></div>
+          </div>
+          <input type="hidden" id="jEditId">
+          <div class="f2">
+            <div class="f"><label>Day</label><input type="date" id="jDate"></div>
+            <div class="f"><label>Customer / job</label><input type="text" id="jCustomer" placeholder="e.g. Pool-tech"></div>
+          </div>
+          <div class="f"><label>Contact (name / phone)</label><input type="text" id="jContact" placeholder="e.g. Mike 402-555-0142"></div>
+          <div class="f"><label>Pickup</label><input type="text" id="jPickup" placeholder="Address, map link, or pin numbers like 41.43, -97.36"><div class="fh" id="jPickupHint"></div></div>
+          <div class="f"><label>Drop-off</label><input type="text" id="jDropoff" placeholder="Address, map link, or pin numbers"><div class="fh" id="jDropoffHint"></div></div>
+          <div class="f2">
+            <div class="f"><label>Material</label><input type="text" id="jMaterial" placeholder="e.g. Sand, Class 5, Crushed concrete"></div>
+            <div class="f"><label>How it's measured</label>
+              <select id="jMeasure"><option value="fixed">Same every load</option><option value="ticket">Ticket every load</option><option value="trip">Per trip (semi)</option><option value="hourly">Hourly</option></select></div>
+          </div>
+          <div class="f3" id="jAmountRow">
+            <div class="f"><label>Amount per load</label><input type="text" id="jQty" inputmode="decimal" placeholder="e.g. 12"></div>
+            <div class="f"><label>Unit</label><select id="jUnit"><option value="t">Tons</option><option value="yd">Yards</option></select></div>
+            <div class="f"><label>Planned loads</label><input type="text" id="jLoads" inputmode="numeric" placeholder="optional"></div>
+          </div>
+          <div class="f" id="jAskRow" style="display:none;"><label>Ask on each load</label>
+            <div class="chips"><label><input type="checkbox" value="head"> Head count</label><label><input type="checkbox" value="weight"> Weight</label><label><input type="checkbox" value="miles" checked> Miles</label><label><input type="checkbox" value="ticket" checked> Ticket #</label></div></div>
+          <div class="f"><label>Notes for the driver</label><textarea id="jNotes" placeholder="Gate code, where to dump, who to call…"></textarea></div>
+          <div class="f"><label>Assign to</label><div class="chips" id="jDrivers"></div><div class="fh" id="jDriversHint">Each driver gets their own copy of the job.</div></div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn go" id="jSave">Send to drivers</button>
+            <button class="btn" id="jClear">Clear</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h3 id="aListTitle">Jobs sent</h3>
+          <div class="alist" id="aList"></div>
+        </div>
+      </div>
+    </div>
+
     <div id="shopSec" style="display:none;">
       <h2 class="sec" style="color:#e07a72;">Shop · open equipment problems</h2>
       <div class="shop" id="shopRows"></div>
@@ -255,6 +328,61 @@ function serviceInfo(e){
   return {due, left, cls: left <= 0 ? "over" : left <= Math.max(25, every * 0.1) ? "soon" : "ok",
     txt: left <= 0 ? "Overdue " + commas(-left) + " hrs" : left <= Math.max(25, every * 0.1) ? "Due in " + commas(left) + " hrs" : commas(left) + " hrs left"};
 }
+// ---------- location reader (same as the driver app) ----------
+  function validLL(lat, lng){ return isFinite(lat) && isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0); }
+function coordsIn(text){
+  let t = text;
+  try{ t = decodeURIComponent(text); }catch(e){}
+  t = t.replace(/\+/g, " ");
+  let m;
+  // exact place marker in long Google links beats the map's viewport center
+  if((m = t.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/))) return [parseFloat(m[1]), parseFloat(m[2])];
+  if((m = t.match(/[?&](?:q|query|ll|sll|destination|daddr|center|saddr)=(?:loc:)?\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/i))) return [parseFloat(m[1]), parseFloat(m[2])];
+  if((m = t.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/))) return [parseFloat(m[1]), parseFloat(m[2])];
+  if((m = t.match(/geo:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i))) return [parseFloat(m[1]), parseFloat(m[2])];
+  // degrees / minutes / seconds
+  const dms = /(\d{1,3})\s*°\s*(\d{1,2})\s*['′]\s*(\d{1,2}(?:\.\d+)?)\s*(?:["″]|'')?\s*([NS])[\s,]+(\d{1,3})\s*°\s*(\d{1,2})\s*['′]\s*(\d{1,2}(?:\.\d+)?)\s*(?:["″]|'')?\s*([EW])/i;
+  if((m = t.match(dms))){
+    const a = (+m[1] + m[2]/60 + m[3]/3600) * (/s/i.test(m[4]) ? -1 : 1);
+    const b = (+m[5] + m[6]/60 + m[7]/3600) * (/w/i.test(m[8]) ? -1 : 1);
+    return [a, b];
+  }
+  // plain decimal pair (needs decimals so street numbers aren't mistaken for coordinates)
+  if((m = t.match(/(^|[^\d.])(-?\d{1,2}\.\d{3,})\s*[, ]\s*(-?\d{1,3}\.\d{3,})(?![\d.])/))) return [parseFloat(m[2]), parseFloat(m[3])];
+  return null;
+}
+function parseMapLink(raw){
+  if(!raw || !raw.trim()) return {address:"", link:"", lat:null, lng:null};
+  const text = raw.trim();
+  const urlMatch = text.match(/(https?:\/\/\S+|geo:\S+)/i);
+  const link = urlMatch ? urlMatch[1].replace(/[)\].,]+$/, "") : "";
+  const c = coordsIn(link || text) || (link ? coordsIn(text) : null);
+  const lat = c && validLL(c[0], c[1]) ? Math.round(c[0] * 1e6) / 1e6 : null;
+  const lng = lat !== null ? Math.round(c[1] * 1e6) / 1e6 : null;
+  const short = !!link && /(maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs)/i.test(link) && lat === null;
+  if(!link && lat === null) return {address:text, link:"", lat:null, lng:null};
+  // "Central Sand pit 41.4401, -97.3712": keep the name, use the pin
+  if(!link && lat !== null){
+    const name = text.replace(/-?\d{1,3}\.\d+\s*[, ]\s*-?\d{1,3}\.\d+/, "").replace(/\d{1,3}\s*°[^NSEW]*[NS][\s,]+\d{1,3}\s*°[^NSEW]*[EW]/i, "").replace(/[\s,:\-]+$|^[\s,:\-]+/g, "").trim();
+    return {address: name && name.length < 80 ? name : "Pin " + lat.toFixed(5) + ", " + lng.toFixed(5), link: "", lat: lat, lng: lng, short: false};
+  }
+  let address = "";
+  if(link){
+    let q = link.match(/[?&](?:q|query|destination|daddr)=([^&]+)/i);
+    if(q){ try{ const v = decodeURIComponent(q[1].replace(/\+/g, " ")); if(!coordsIn(v) && !/^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$/.test(v)) address = v; }catch(e){} }
+    const place = link.match(/\/place\/([^\/@?]+)/);
+    if(!address && place){ try{ address = decodeURIComponent(place[1].replace(/\+/g, " ")); }catch(e){} }
+    // share text like "Dropped pin\nNear 1820 23rd St https://maps.app.goo.gl/…"
+    if(!address){
+      const rest = text.replace(urlMatch[1], "").replace(/dropped pin/i, "").replace(/^\s*near\s+/im, "").replace(/\s+/g, " ").trim();
+      if(rest && !coordsIn(rest) && rest.length < 80) address = rest;
+    }
+  }
+  if(!address && lat !== null) address = "Pin " + lat.toFixed(5) + ", " + lng.toFixed(5);
+  if(!address) address = "Map link";
+  return {address: address, link: link, lat: lat, lng: lng, short: short};
+}
+
 function hitchLabel(h){ return (h.trailerType || "Trailer") + (h.trailerName ? " · " + h.trailerName : ""); }
 function hitchMiles(h){ const a = parseFloat(h.hookOdo), b = parseFloat(h.dropOdo); return !isNaN(a) && !isNaN(b) && b > a && b - a < 3000 ? Math.round((b - a) * 10) / 10 : 0; }
 function mapLink(lat, lng){ return lat ? '<a href="https://maps.google.com/?q=' + lat + ',' + lng + '" target="_blank" rel="noopener">map</a>' : ''; }
@@ -265,6 +393,7 @@ function ranges(nums){
   return out.join(", ");
 }
 
+let assignments = new Map(), editing = null;
 let backend, me = null, role = null, records = new Map(), hitches = new Map(), usage = new Map(), trailerList = [], equipList = [], unsubs = [], crew = [];
 $("day").value = localDay();
 
@@ -338,7 +467,7 @@ function render(){
       const eh = d.usage.reduce((a, u) => a + num(u.hours), 0);
       const usageHtml = d.usage.length ? '<div class="job"><div class="jn">Equipment</div><div class="jd">' +
         d.usage.map(u => esc(u.equipLabel || "Machine") + (u.job ? ' · ' + esc(u.job) : '') + (num(u.hours) ? ' · <span class="mono">' + fmtHrs(num(u.hours)) + '</span> h' : '') +
-          (u.problem ? '<br><span class="sev' + (u.problemSev === "down" ? ' down' : '') + '">' + (u.problemStatus === "fixed" ? "fixed" : u.problemSev === "down" ? "down" : "problem") + '</span> ' + esc(u.problem) : '')).join('<br>') + '</div></div>' : '';
+          (u.problem ? '<br><span class="sev' + (u.problemStatus === "fixed" ? ' fixed' : u.problemSev === "down" ? ' down' : '') + '">' + (u.problemStatus === "fixed" ? "fixed" : u.problemSev === "down" ? "down" : "problem") + '</span> ' + esc(u.problem) : '')).join('<br>') + '</div></div>' : '';
       const pulling = d.hitches.filter(h => !h.dropAt);
       const events = d.loads.map(r => ({at: r.deliveredAt || r.updatedAt, truck: r.truck, job: r.customer, kind: "load"}))
         .concat(d.time.map(x => ({at: x.e.end || x.e.start, truck: x.e.truck, job: x.job.customer, kind: x.e.end ? "clock out" : "clocked in"})))
@@ -409,6 +538,7 @@ function render(){
       (r.equip ? '<span class="pill ' + (r.down ? 'r' : 'e') + '">' + (r.down ? 'Down' : 'Equip') + '</span>' : r.hitch ? '<span class="pill h">' + (r.running ? 'Hooked' : 'Trailer') + '</span>' : r.time ? '<span class="pill ' + (r.running ? 'r' : 't') + '">' + (r.running ? 'On clock' : 'Time') + '</span>' : r.via ? '<span class="pill a">Auto</span>' : '') + '</td></tr>').join("")
       : '<tr><td colspan="10" style="color:var(--muted); padding:16px;">Nothing yet.</td></tr>');
   render.rows = rows;
+  renderAssignments();
 }
 function fillSelect(sel, allLabel, opts){
   const cur = sel.value;
@@ -464,6 +594,229 @@ $("addMember").addEventListener("click", () => {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ toast("Enter a full email address"); $("newEmail").focus(); return; }
   backend.setMember(email, {role: $("newRole").value}).then(() => { $("newEmail").value = ""; toast("Added " + email + ". They can sign in now."); })
     .catch(err => toast("Couldn't add: " + (err.code || err)));
+});
+
+// ---------- dispatch ----------
+const MEASURE = {fixed: "Same every load", ticket: "Ticket every load", trip: "Per trip", hourly: "Hourly"};
+function crewNames(){
+  // names from crew list, else from anything that driver has logged
+  const names = {};
+  for (const r of records.values()) if (r.driverEmail && r.driverName) names[r.driverEmail] = r.driverName;
+  for (const r of usage.values()) if (r.driverEmail && r.driverName) names[r.driverEmail] = r.driverName;
+  crew.forEach(m => { if (m.name) names[m.email] = m.name; });
+  return names;
+}
+function renderDriverChips(selected){
+  const names = crewNames();
+  const list = crew.slice().sort((a,b) => (a.role === "driver" ? 0 : 1) - (b.role === "driver" ? 0 : 1) || (names[a.email] || a.email).localeCompare(names[b.email] || b.email));
+  const sel = new Set(selected || Array.from(document.querySelectorAll("#jDrivers input:checked")).map(i => i.value));
+  $("jDrivers").innerHTML = list.length ? list.map(m => '<label><input type="checkbox" value="' + esc(m.email) + '"' + (sel.has(m.email) ? ' checked' : '') + '> ' + esc(names[m.email] || m.email) + '</label>').join("")
+    : '<span class="fh">No one on the crew list yet.</span>';
+}
+function pinHint(id, hintId){
+  const p = parseMapLink($(id).value);
+  const h = $(hintId);
+  h.className = "fh" + (p.lat !== null ? " ok" : "");
+  h.textContent = p.lat !== null ? "📍 GPS pin " + p.lat.toFixed(5) + ", " + p.lng.toFixed(5) + " (drivers can auto-count here)"
+    : p.short ? "Short share link: no location in it. Paste the pin's numbers instead." : p.address ? "Address only (no GPS pin)" : "";
+}
+[["jPickup","jPickupHint"],["jDropoff","jDropoffHint"]].forEach(([i, h]) => $(i).addEventListener("input", () => pinHint(i, h)));
+function measureUi(){
+  const m = $("jMeasure").value;
+  $("jAmountRow").style.display = m === "hourly" ? "none" : "";
+  $("jQty").closest(".f").style.display = m === "trip" ? "none" : "";
+  $("jUnit").closest(".f").style.display = m === "trip" ? "none" : "";
+  $("jAskRow").style.display = m === "trip" ? "" : "none";
+}
+$("jMeasure").addEventListener("change", measureUi);
+function clearForm(){
+  editing = null;
+  $("jEditId").value = "";
+  ["jCustomer","jContact","jPickup","jDropoff","jMaterial","jQty","jLoads","jNotes","emailIn"].forEach(i => $(i).value = "");
+  $("jDate").value = $("day").value || localDay();
+  $("jMeasure").value = "fixed"; $("jUnit").value = "t";
+  document.querySelectorAll("#jAskRow input").forEach(c => c.checked = c.value === "miles" || c.value === "ticket");
+  $("jPickupHint").textContent = ""; $("jDropoffHint").textContent = ""; $("emailHint").textContent = "";
+  $("jobFormTitle").textContent = "New job"; $("jSave").textContent = "Send to drivers";
+  $("jDriversHint").textContent = "Each driver gets their own copy of the job.";
+  renderDriverChips([]);
+  measureUi();
+}
+$("jClear").addEventListener("click", clearForm);
+function fillForm(a, asCopy){
+  editing = asCopy ? null : a;
+  $("jEditId").value = asCopy ? "" : a.id;
+  $("jDate").value = asCopy ? ($("day").value || localDay()) : a.date;
+  $("jCustomer").value = a.customer || ""; $("jContact").value = a.contact || "";
+  $("jPickup").value = a.pickup && (a.pickup.link || (a.pickup.lat && /^Pin /.test(a.pickup.address) ? a.pickup.lat + ", " + a.pickup.lng : a.pickup.address)) || "";
+  $("jDropoff").value = a.dropoff && (a.dropoff.link || (a.dropoff.lat && /^Pin /.test(a.dropoff.address) ? a.dropoff.lat + ", " + a.dropoff.lng : a.dropoff.address)) || "";
+  // keep exact pins when re-using an address that already had one
+  fillForm.pins = {pickup: a.pickup, dropoff: a.dropoff};
+  $("jMaterial").value = a.material || ""; $("jMeasure").value = a.measure || "fixed"; $("jUnit").value = a.unit || "t";
+  $("jQty").value = a.perLoad || ""; $("jLoads").value = a.plannedLoads || ""; $("jNotes").value = a.notes || "";
+  document.querySelectorAll("#jAskRow input").forEach(c => c.checked = (a.askFields || []).indexOf(c.value) >= 0);
+  pinHint("jPickup", "jPickupHint"); pinHint("jDropoff", "jDropoffHint");
+  renderDriverChips(asCopy ? [] : [a.assignedTo]);
+  $("jobFormTitle").textContent = asCopy ? "New job (copied)" : "Edit job for " + (crewNames()[a.assignedTo] || a.assignedTo);
+  $("jSave").textContent = asCopy ? "Send to drivers" : "Save changes";
+  $("jDriversHint").textContent = asCopy ? "Each driver gets their own copy of the job." : "Editing this driver's copy. Their app updates the next time it syncs.";
+  measureUi();
+  $("jobFormTitle").scrollIntoView({behavior: "smooth", block: "start"});
+}
+function pinFrom(id, which){
+  const p = parseMapLink($(id).value);
+  const keep = fillForm.pins && fillForm.pins[which];
+  // unchanged text keeps the original pin
+  if (keep && keep.lat && p.lat === null && $(id).value.trim() === (keep.address || "").trim()) return {address: keep.address, link: keep.link || "", lat: keep.lat, lng: keep.lng};
+  return {address: p.address || "", link: p.link || "", lat: p.lat, lng: p.lng};
+}
+$("jSave").addEventListener("click", async () => {
+  const measure = $("jMeasure").value;
+  const base = {
+    date: $("jDate").value || localDay(), customer: $("jCustomer").value.trim(), contact: $("jContact").value.trim(),
+    pickup: pinFrom("jPickup", "pickup"), dropoff: pinFrom("jDropoff", "dropoff"),
+    material: $("jMaterial").value.trim(), measure: measure, unit: $("jUnit").value,
+    perLoad: measure === "fixed" || measure === "ticket" ? $("jQty").value.trim().replace(/[^\d.]/g, "") : "",
+    plannedLoads: measure === "hourly" ? 0 : (parseInt($("jLoads").value, 10) || 0),
+    askFields: measure === "trip" ? Array.from(document.querySelectorAll("#jAskRow input:checked")).map(c => c.value) : [],
+    notes: $("jNotes").value.trim(), updatedAt: new Date().toISOString()
+  };
+  if (!base.customer){ toast("Enter the customer / job name"); $("jCustomer").focus(); return; }
+  const who = Array.from(document.querySelectorAll("#jDrivers input:checked")).map(i => i.value);
+  if (editing){
+    try { await backend.merge("assignments", editing.id, base); toast("Saved. " + (crewNames()[editing.assignedTo] || editing.assignedTo) + "'s app will update."); clearForm(); }
+    catch (err){ toast("Couldn't save: " + (err.code || err)); }
+    return;
+  }
+  if (!who.length){ toast("Pick at least one driver"); return; }
+  const group = "G" + Date.now().toString(36);
+  const names = crewNames();
+  try {
+    await Promise.all(who.map((email, i) => backend.put("assignments", group + "-" + i,
+      Object.assign({}, base, {assignedTo: email, assignedName: names[email] || "", group: group, status: "sent", createdBy: me.email, createdAt: base.updatedAt, source: $("emailIn").value.trim() ? "email" : "form"}))));
+    toast("Sent " + base.customer + " to " + who.length + " driver" + (who.length === 1 ? "" : "s"));
+    clearForm();
+  } catch (err){ toast("Couldn't send: " + (err.code || err)); }
+});
+
+// progress on an assignment comes from the loads/hours the driver logs against it
+function progressOf(a){
+  const rs = Array.from(records.values()).filter(r => r.assignmentId === a.id);
+  if (a.measure === "hourly"){
+    const h = rs.reduce((s, r) => s + (r.entries || []).reduce((x, e) => x + Math.max(0, entryMs(e)) / 3600000, 0), 0);
+    return {txt: fmtHrs(h) + " hrs", started: h > 0};
+  }
+  const d = rs.filter(r => r.status === "Delivered");
+  const amtTxt = a.measure === "trip" ? tripTotals(d) : amt(d);
+  return {txt: d.length + (a.plannedLoads ? " / " + a.plannedLoads : "") + " loads" + (amtTxt ? " · " + amtTxt : ""), started: d.length > 0};
+}
+function statusOf(a, pr){
+  if (a.status === "cancelled") return ["cancelled", "Cancelled"];
+  if (a.status === "removed") return ["removed", "Driver removed it"];
+  if (a.status === "done") return ["done", "Done"];
+  if (pr.started) return ["hauling", "Hauling"];
+  if (a.seenAt) return ["seen", "Seen " + fmtTime(a.seenAt)];
+  return ["sent", "Sent"];
+}
+function renderAssignments(){
+  if (!$("aList")) return;
+  const day = $("day").value || localDay();
+  const all = Array.from(assignments.values());
+  const today = all.filter(a => a.date === day);
+  const isOpen = a => a.status !== "done" && a.status !== "cancelled" && a.status !== "removed";
+  const older = all.filter(a => a.date < day && isOpen(a));
+  const later = all.filter(a => a.date > day);
+  const names = crewNames();
+  const row = a => { const pr = progressOf(a), st = statusOf(a, pr);
+    return '<div class="arow"><div class="top"><span class="who">' + esc(names[a.assignedTo] || a.assignedName || a.assignedTo) + '</span><span class="st ' + st[0] + '">' + esc(st[1]) + '</span><span class="prog">' + esc(pr.txt) + '</span></div>' +
+      '<div><b>' + esc(a.customer) + '</b>' + (a.material ? ' · ' + esc(a.material) : '') + ' · ' + esc(MEASURE[a.measure] || "") + (a.date !== day ? ' · ' + esc(a.date) : '') + '</div>' +
+      '<div class="what">' + esc([a.pickup && a.pickup.address, a.dropoff && a.dropoff.address].filter(Boolean).join(" → ")) + '</div>' +
+      '<div class="acts"><button class="btn" data-aedit="' + esc(a.id) + '">Edit</button><button class="btn" data-acopy="' + esc(a.id) + '">Copy</button>' +
+      (a.status !== "cancelled" && a.status !== "done" ? '<button class="btn" data-acancel="' + esc(a.id) + '">Cancel</button>' : '') + '</div></div>'; };
+  $("aListTitle").textContent = "Jobs sent · " + longDay(day).replace(/, \d{4}$/, "");
+  $("aList").innerHTML = (today.length ? today.sort((a,b) => (a.customer || "").localeCompare(b.customer || "") || (a.assignedTo || "").localeCompare(b.assignedTo || "")).map(row).join("")
+      : '<div class="fh">Nothing sent for this day yet.</div>') +
+    (later.length ? '<h3 style="margin-top:14px;">Coming up</h3>' + later.sort((a,b) => a.date.localeCompare(b.date)).map(row).join("") : "") +
+    (older.length ? '<h3 style="margin-top:14px;">Still open from earlier</h3>' + older.sort((a,b) => b.date.localeCompare(a.date)).map(row).join("") : "");
+}
+$("aList").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const id = b.dataset.aedit || b.dataset.acopy || b.dataset.acancel;
+  const a = assignments.get(id); if (!a) return;
+  if (b.dataset.aedit) fillForm(a, false);
+  if (b.dataset.acopy) fillForm(a, true);
+  if (b.dataset.acancel){
+    if (!confirm("Cancel " + a.customer + " for " + (crewNames()[a.assignedTo] || a.assignedTo) + "? Loads they already hauled stay.")) return;
+    backend.merge("assignments", id, {status: "cancelled", updatedAt: new Date().toISOString()}).then(() => toast("Cancelled")).catch(err => toast("Couldn't cancel: " + (err.code || err)));
+  }
+});
+
+// ---------- read a load email ----------
+const MATERIALS = ["crushed concrete","class 5","class v","fill sand","fill dirt","topsoil","black dirt","sand","gravel","road gravel","rock","rip rap","riprap","millings","asphalt","pea gravel","limestone","clay","dirt","fill","cattle","hogs","grain","corn","beans","lime","concrete","base"];
+function parseEmail(text){
+  const out = {}, hits = [];
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const val = re => { for (const l of lines){ const m = l.match(re); if (m && m[1] && m[1].trim()) return m[1].trim(); } return ""; };
+  const sender = val(/^from\s*:\s*([^<\n]+?)\s*(?:<|$)/i).replace(/"/g, "");
+  const senderMail = (text.match(/^from\s*:.*?<?([\w.+\-]+@([\w\-]+)\.[\w.\-]+)>?/im) || []);
+  const company = senderMail[2] && !/^(gmail|yahoo|outlook|hotmail|icloud|aol|live|msn|me)$/i.test(senderMail[2]) ? senderMail[2].replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "";
+  out.customer = val(/^(?:customer|company|job(?: name)?|contractor|bill to|for)\s*[:\-]\s*(.+)$/i) || company || sender;
+  out.subject = val(/^subject\s*:\s*(.+)$/i).replace(/^(re|fw|fwd)\s*:\s*/i, "");
+  const phone = text.match(/(\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]\d{4})/);
+  const cname = val(/^(?:contact|call|foreman|super(?:intendent)?)\s*[:\-]\s*(.+)$/i);
+  out.contact = [(cname && cname.replace(phone ? phone[1] : "", "").trim()) || (sender && sender !== out.customer ? sender : ""), phone && phone[1]].filter(Boolean).join(" ");
+  // pickup / drop-off: labeled lines first, then any addresses or pins in order
+  const isHeader = l => /^(from|to|cc|bcc|sent|date|subject)\s*:/i.test(l) || /@[\w\-]+\./.test(l);
+  const lab = (re) => { for (let i = 0; i < lines.length; i++){ if (isHeader(lines[i])) continue; const m = lines[i].match(re); if (m){ const v = (m[1] || "").trim() || (lines[i + 1] || ""); return v; } } return ""; };
+  out.pickup = lab(/^(?:pick\s*-?\s*up|load(?:ing)? (?:at|from|site)|from|origin|pit|quarry|source)\b\s*(?:location|address|at|from)?\s*[:\-]?\s*(.*)$/i);
+  out.dropoff = lab(/^(?:drop\s*-?\s*off|deliver(?:y|ed)?(?: to)?|dump(?: at| site)?|to|destination|ship to|job ?site|site(?: address)?|address)\b\s*(?:location|address|at)?\s*[:\-]?\s*(.*)$/i);
+  if (!out.pickup || !out.dropoff){
+    const places = [];
+    const addrRe = /\b\d{1,6}\s+(?:[NSEW]\.?\s+)?(?:[A-Za-z][A-Za-z.']*\s+){1,4}?(?:st|street|ave|avenue|rd|road|blvd|dr|drive|hwy|highway|ln|lane|ct|court|pkwy|way|pl|place|cir|trl|trail)\b\.?(?:[ ,]+[A-Za-z .]+,?\s*(?:NE|Nebraska)\b\.?(?:\s*\d{5})?)?/gi;
+    let m; while ((m = addrRe.exec(text))) places.push(m[0].trim());
+    const urlRe = /(https?:\/\/\S+|geo:\S+)/gi; while ((m = urlRe.exec(text))) if (parseMapLink(m[1]).lat !== null) places.push(m[1]);
+    const ptRe = /(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})/g; while ((m = ptRe.exec(text))) places.push(m[1] + ", " + m[2]);
+    const uniq = places.filter((p, i) => places.indexOf(p) === i && p !== out.pickup && p !== out.dropoff);
+    const pinOf = v => parseMapLink(v || "");
+    const rest = uniq.filter(p => !(out.pickup && pinOf(out.pickup).lat !== null && pinOf(p).lat === pinOf(out.pickup).lat));
+    if (!out.dropoff && rest.length) out.dropoff = rest.shift();
+    if (!out.pickup && rest.length) out.pickup = rest.shift();
+  }
+  out.material = val(/^(?:material|product|item)\s*[:\-]\s*(.+)$/i);
+  if (!out.material){ const low = text.toLowerCase(); const f = MATERIALS.find(w => new RegExp("\\b" + w.replace(/ /g, "\\s+") + "\\b").test(low)); if (f) out.material = f.replace(/\b\w/g, c => c.toUpperCase()).replace("Class V", "Class 5"); }
+  let m;
+  if ((m = text.match(/(\d{1,3})\s*(?:loads?|trips?|trucks?)\b/i))) out.loads = m[1];
+  if ((m = text.match(/(\d+(?:\.\d+)?)\s*(?:yds?|yards?|cy)\b/i))) { out.qty = m[1]; out.unit = "yd"; }
+  else if ((m = text.match(/(\d+(?:\.\d+)?)\s*(?:tons?|tn)\b/i))) { out.qty = m[1]; out.unit = "t"; }
+  if (out.qty && !/per\s+load|each|\/\s*load/i.test(text) && out.loads && +out.qty > +out.loads * 30) out.qty = String(Math.round(+out.qty / +out.loads * 10) / 10);   // a total, not per load
+  if (/scale ticket|ticket (?:each|every)|weigh(?:ed)? each/i.test(text)) out.measure = "ticket";
+  else if (/per hour|hourly|by the hour|\bhrs?\b.*rate/i.test(text)) out.measure = "hourly";
+  else if (/\bhead\b|cattle|livestock|miles/i.test(text) && /cattle|pot|semi|dry van|hopper|livestock/i.test(text)) out.measure = "trip";
+  // date
+  const now = new Date();
+  if (/\btomorrow\b/i.test(text)){ const d = new Date(now); d.setDate(d.getDate() + 1); out.date = localDay(d); }
+  else if (/\btoday\b/i.test(text)) out.date = localDay(now);
+  else if ((m = text.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/))){ let y = m[3] ? +m[3] : now.getFullYear(); if (y < 100) y += 2000; out.date = y + "-" + String(m[1]).padStart(2, "0") + "-" + String(m[2]).padStart(2, "0"); }
+  else { const days = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"]; const dm = text.toLowerCase().match(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+    if (dm){ const d = new Date(now); const t = days.indexOf(dm[1]); d.setDate(d.getDate() + ((t - d.getDay() + 7) % 7)); out.date = localDay(d); } }
+  const notes = val(/^(?:notes?|instructions?|comments?|gate(?: code)?)\s*[:\-]\s*(.+)$/i);
+  const extra = lines.filter(l => !isHeader(l) && /\b(gate|code|call|text|dump|north|south|east|west|side|before|after|by \d|am\b|pm\b)\b/i.test(l) && l.length < 160);
+  out.notes = [notes, ...extra].filter((v, i, a) => v && a.indexOf(v) === i).join(" ");
+  return out;
+}
+$("emailFill").addEventListener("click", () => {
+  const text = $("emailIn").value;
+  if (!text.trim()){ toast("Paste the email first"); $("emailIn").focus(); return; }
+  const r = parseEmail(text), got = [];
+  const set = (id, v, label) => { if (v){ $(id).value = v; got.push(label); } };
+  set("jCustomer", r.customer, "customer"); set("jContact", r.contact, "contact"); set("jPickup", r.pickup, "pickup"); set("jDropoff", r.dropoff, "drop-off");
+  set("jMaterial", r.material, "material");
+  if (!$("jCustomer").value && r.subject) $("jCustomer").value = r.subject; set("jQty", r.qty, "amount"); set("jLoads", r.loads, "loads"); set("jDate", r.date, "day"); set("jNotes", r.notes, "notes");
+  if (r.unit) $("jUnit").value = r.unit;
+  if (r.measure){ $("jMeasure").value = r.measure; got.push("measure"); }
+  fillForm.pins = null;
+  pinHint("jPickup", "jPickupHint"); pinHint("jDropoff", "jDropoffHint"); measureUi();
+  $("emailHint").textContent = got.length ? "Filled: " + got.join(", ") + ". Check it before sending." : "Couldn't find job details. Fill the form in by hand.";
 });
 
 // ---------- shop: open problems ----------
@@ -566,7 +919,7 @@ async function start(){
   window.addEventListener("offline", () => live("Offline · showing last data", "warn"));
   backend.onAuth(async u => {
     unsubs.forEach(f => { try { f(); } catch (e) {} }); unsubs = [];
-    records = new Map(); hitches = new Map(); usage = new Map(); equipList = []; me = u; role = null;
+    records = new Map(); hitches = new Map(); usage = new Map(); equipList = []; assignments = new Map(); me = u; role = null;
     $("signOutBtn").style.display = u ? "" : "none";
     if (!u){ gate("Sign in with the Google account the admin added to the crew list as Office or Admin.", true); live("Signed out", "warn"); return; }
     gate("Checking access for " + esc(u.email) + "…", false);
@@ -583,6 +936,8 @@ async function start(){
     $("gate").style.display = "none"; $("app").style.display = ""; $("controls").style.display = "";
     $("crewSec").style.display = role === "admin" ? "" : "none";
     $("trailerSec").style.display = "";
+    $("dispatchSec").style.display = "";
+    clearForm();
     $("equipSec").style.display = "";
     live(navigator.onLine ? "Live" : "Offline · showing last data", navigator.onLine ? "ok" : "warn");
     const onErr = err => { live("Error: " + (err.code || err), "warn"); };
@@ -592,7 +947,8 @@ async function start(){
     unsubs.push(backend.watchAll("usage", snap => { into(usage)(snap); renderShop(); renderEquipList(); }, onErr));
     unsubs.push(backend.watchCol("equipment", list => { equipList = list; renderEquipList(); }, () => {}));
     unsubs.push(backend.watchCol("trailers", list => { trailerList = list; renderTrailers(); }, () => {}));
-    if (role === "admin") unsubs.push(backend.watchMembers(list => { crew = list; renderCrew(); }, () => {}));
+    unsubs.push(backend.watchMembers(list => { crew = list; if (role === "admin") renderCrew(); renderDriverChips(); }, () => {}));
+    unsubs.push(backend.watchCol("assignments", list => { assignments = new Map(list.map(a => [a.id, a])); renderAssignments(); }, onErr));
     render();
   });
 }

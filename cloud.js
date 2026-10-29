@@ -128,6 +128,12 @@ function bumpMeter(id, meter) {
   backend.merge("equipment", id, { lastMeter: meter, lastMeterAt: new Date().toISOString(), lastMeterBy: user.email }).catch(() => {});
 }
 
+// a driver can mark a job sent by the office as seen / done / removed (the rules allow only those fields)
+function markAssignment(id, patch) {
+  if (state !== "on") return;
+  track(backend.merge("assignments", id, patch));
+}
+
 // ---------- sign-in / devices shared between drivers ----------
 function stopWatching() { unsubs.forEach(u => { try { u(); } catch (e) {} }); unsubs = []; SETS.forEach(s => { s.ready = false; s.swept = false; }); }
 function clearDevice() {
@@ -171,6 +177,7 @@ async function handleUser(u) {
   SETS.forEach(set => unsubs.push(backend.watchMine(set.col, u.uid, snap => onRemote(set, snap), onErr)));
   unsubs.push(backend.watchCol("trailers", list => App.setTrailers(list.filter(t => !t.retired)), () => {}));
   unsubs.push(backend.watchCol("equipment", list => App.setEquipment(list), () => {}));
+  unsubs.push(backend.watchWhere("assignments", "assignedTo", u.email, list => App.setAssignments(list), () => {}));
   // trailers added on this device while signed out join the crew list now
   App.getTrailers().filter(t => t.localOnly).forEach(t => { const c = Object.assign({}, t); delete c.localOnly; delete t.localOnly; addTrailer(c); });
   render();
@@ -229,7 +236,7 @@ async function start() {
   if (!firebaseConfig) return;                                  // not set up: device-only mode
   const { createBackend } = await import("./backend-firebase.js");
   backend = await createBackend(firebaseConfig, ORG);
-  window.LoadSheetCloud = { onLocalChange, signIn, signOut, addTrailer, bumpMeter, isOn: () => state === "on",
+  window.LoadSheetCloud = { onLocalChange, signIn, signOut, addTrailer, bumpMeter, markAssignment, isOn: () => state === "on",
     status: () => ({ state, pending, ready: allReady(), lastErr, user, member }) };
   document.getElementById("cloudSignIn").addEventListener("click", () => state === "notmember" && user ? handleUser(user) : signIn());
   document.getElementById("cloudSignOut").addEventListener("click", signOut);

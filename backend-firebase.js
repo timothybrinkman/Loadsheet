@@ -6,6 +6,7 @@
 //   orgs/{org}/trailers/{id}     the crew's shared trailer list { type, name }
 //   orgs/{org}/usage/{id}        one operator's hours on one machine for a day (+ problem for the shop)
 //   orgs/{org}/equipment/{id}    the crew's machine list { unit, type, model, serviceEvery, lastService, lastMeter }
+//   orgs/{org}/assignments/{id}  a job the office sent to one driver (assignedTo = driver's email)
 // records and hitches also carry driverUid / driverName / driverEmail / updatedAt
 import {
   initializeApp, getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
@@ -69,6 +70,9 @@ export async function createBackend(config, org) {
     },
     watchAll(name, cb, onErr) {
       return onSnapshot(col(name), snapHandler(cb), onErr);
+    },
+    watchWhere(name, field, value, cb, onErr) {
+      return onSnapshot(query(col(name), where(field, "==", value)), s => cb(s.docs.map(d => Object.assign({ id: d.id }, d.data()))), onErr);
     },
     watchCol(name, cb, onErr) {
       return onSnapshot(col(name), s => cb(s.docs.map(d => Object.assign({ id: d.id }, d.data()))), onErr);

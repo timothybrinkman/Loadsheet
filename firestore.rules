@@ -44,6 +44,15 @@ service cloud.firestore {
         && request.resource.data.lastMeter >= resource.data.get('lastMeter', 0));
     }
 
+    // jobs the office sends: one copy per driver; the driver can only mark it seen / done / removed
+    match /orgs/{org}/assignments/{id} {
+      allow read: if isOffice(org) || (isMember(org) && resource.data.assignedTo == myEmail());
+      allow create, delete: if isOffice(org);
+      allow update: if isOffice(org) || (isMember(org) && resource.data.assignedTo == myEmail()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'seenAt', 'doneAt'])
+        && request.resource.data.get('status', 'sent') in ['sent', 'done', 'removed']);
+    }
+
     // shared trailer list: anyone on the crew can read it and add a trailer; office edits and retires
     match /orgs/{org}/trailers/{id} {
       allow read, create: if isMember(org) || isOffice(org);
