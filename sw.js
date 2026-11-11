@@ -1,7 +1,7 @@
 // Load Sheet offline worker. Bump VERSION on every release.
-const VERSION = "2026.10.29-2";
+const VERSION = "2026.11.10-1";
 const CACHE = "loadsheet-" + VERSION;
-const SHELL = ["./", "index.html", "office.html", "cloud.js", "config.js", "backend-firebase.js", "vendor/firebase.js", "manifest.webmanifest",
+const SHELL = ["./", "index.html", "office.html", "cloud.js", "config.js", "backend-firebase.js", "vendor/firebase.js", "manifest.webmanifest", "hos.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
