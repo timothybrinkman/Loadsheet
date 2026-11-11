@@ -6,6 +6,9 @@
 //   orgs/{org}/trailers/{id}     the crew's shared trailer list { type, name }
 //   orgs/{org}/usage/{id}        one operator's hours on one machine for a day (+ problem for the shop)
 //   orgs/{org}/equipment/{id}    the crew's machine list { unit, type, model, serviceEvery, lastService, lastMeter }
+//   orgs/{org}/duty/{id}         one driver-log status change { at, status, truck, trailer, lat, lng, place, note, edits[] }
+//   orgs/{org}/logdays/{id}      one driver's log day { date, mode, odo{truck:{start,end}}, remarks, certifiedAt, certName }
+//   orgs/{org}/dvirs/{id}        a pre/post-trip inspection { kind, truck, trailer, defects[], safe, repairStatus, repairedBy… }
 //   orgs/{org}/assignments/{id}  a job the office sent to one driver (assignedTo = driver's email)
 // records and hitches also carry driverUid / driverName / driverEmail / updatedAt
 import {

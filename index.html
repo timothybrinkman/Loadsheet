@@ -13,6 +13,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Load Sheet</title>
+<script src="hos.js"></script>
 <style>
   :root{
     --asphalt:#1c1b1a;
@@ -461,6 +462,116 @@
   @media (prefers-reduced-motion: no-preference){
     .load-card, .modal-backdrop{ transition:opacity 0.15s ease; }
   }
+
+  /* ---------- driver log ---------- */
+  #logView{display:none;}
+  body.view-log #logView{display:block;}
+  body.view-log .stats, body.view-log #filterChips, body.view-log .searchbar, body.view-log #loadList, body.view-log #emptyState, body.view-log #equipView{display:none !important;}
+  body.view-log #dutyStrip{display:none !important;}
+  .duty-strip{display:none; width:100%; margin-top:8px; text-align:left; background:var(--asphalt-2); border:1px solid #3a3733; border-left:6px solid #77705f; color:var(--paper);
+    border-radius:var(--radius); padding:9px 12px; font-size:12.5px; font-weight:800; letter-spacing:0.02em;}
+  .duty-strip.show{display:block;}
+  .duty-strip .st{font-weight:900; text-transform:uppercase; letter-spacing:0.06em;}
+  .duty-strip .cl{font-family:"SF Mono",Menlo,monospace; color:#c9bfae; font-weight:700;}
+  .duty-strip.s-d{border-left-color:var(--orange);} .duty-strip.s-on{border-left-color:var(--enroute);} .duty-strip.s-off, .duty-strip.s-sb{border-left-color:var(--delivered);}
+  .duty-strip.warn{border-color:var(--cancelled); border-left-color:var(--cancelled);}
+  .duty-now{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .duty-now .big{font-size:26px; line-height:1; font-weight:900; text-transform:uppercase; letter-spacing:0.02em;}
+  .duty-now .since{font-size:12.5px; color:var(--muted); margin-top:5px; line-height:1.45;}
+  .duty-now .elapsed{font-family:"SF Mono",Menlo,monospace; font-size:24px; font-weight:900; white-space:nowrap;}
+  .duty-btns{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px;}
+  .duty-btns button{min-height:62px; border-radius:var(--radius); border:2px solid var(--ink); background:transparent; color:var(--ink);
+    font-size:15px; font-weight:900; text-transform:uppercase; letter-spacing:0.04em; line-height:1.15; padding:8px 6px;}
+  .duty-btns button small{display:block; font-size:10px; letter-spacing:0.06em; font-weight:800; opacity:0.75;}
+  .duty-btns button.on{color:#fff; box-shadow:inset 0 0 0 2px rgba(255,255,255,0.35);}
+  .duty-btns button[data-st="off"].on, .duty-btns button[data-st="sb"].on{background:var(--delivered); border-color:var(--delivered);}
+  .duty-btns button[data-st="d"].on{background:var(--orange); border-color:var(--orange-dark); color:#1c1200;}
+  .duty-btns button[data-st="on"].on{background:var(--enroute); border-color:#a87b22; color:#1c1200;}
+  .duty-btns button:active{transform:translateY(2px);}
+  .duty-btns.short button[data-st="sb"]{display:none;}
+  .duty-btns.short button[data-st="d"]{grid-column:1 / -1;}
+  .clocks{display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:14px;}
+  .clocks.three{grid-template-columns:repeat(3, 1fr);}
+  .clk{background:var(--paper-dim); border-radius:var(--radius); padding:8px 4px 7px; text-align:center;}
+  .clk .v{font-family:"SF Mono",Menlo,monospace; font-size:19px; font-weight:900;}
+  .clk .l{font-size:9.5px; font-weight:900; letter-spacing:0.07em; text-transform:uppercase; color:var(--muted); margin-top:2px;}
+  .clk.low{background:#f6e5bf;} .clk.low .v{color:#7a5300;}
+  .clk.out{background:var(--cancelled);} .clk.out .v, .clk.out .l{color:#fff;}
+  .log-alert{display:flex; gap:10px; align-items:center; margin-top:10px; padding:10px; border-radius:var(--radius); background:#f6e5bf; color:#5a3d00; font-size:13px; font-weight:700; line-height:1.4;}
+  .log-alert.bad{background:#f3d3cf; color:#7d1f18;}
+  .log-alert.ok{background:#dfeee4; color:#2b6845;}
+  .log-alert .t{flex:1;}
+  .log-alert button{flex:0 0 auto; min-height:44px; padding:8px 12px; border-radius:var(--radius); border:2px solid currentColor; background:transparent; color:inherit; font-weight:900; font-size:12px; text-transform:uppercase;}
+  .log-daybar{display:flex; align-items:center; gap:8px; margin:20px 0 10px;}
+  .log-daybar .nav{width:48px; height:48px; flex:0 0 48px; border-radius:var(--radius); border:1px solid #4a463f; background:transparent; color:var(--paper); font-size:22px; font-weight:900;}
+  .log-daybar .d{flex:1; text-align:center; font-weight:900; text-transform:uppercase; letter-spacing:0.05em; font-size:13px; line-height:1.3;}
+  .log-daybar .d small{display:block; color:#9c8f7c; font-size:10.5px; letter-spacing:0.08em;}
+  .mode-seg{margin-bottom:12px;}
+  .mode-seg button{padding:12px 6px;}
+  .log-grid{display:block; width:100%; height:auto; margin:4px 0 6px;}
+  .log-tot{display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12.5px; padding-top:8px; border-top:1px dashed #c9bfae;}
+  .log-tot b{font-family:"SF Mono",Menlo,monospace;}
+  .chg{display:flex; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--paper-dim); font-size:13px;}
+  .chg:last-child{border-bottom:0;}
+  .chg .tm{width:66px; flex:0 0 66px; font-family:"SF Mono",Menlo,monospace; font-weight:900; font-size:13px;}
+  .chg .main{flex:1; min-width:0; line-height:1.4;}
+  .chg .sub{color:var(--muted); font-size:12px;}
+  .stdot{display:inline-block; padding:2px 6px; border-radius:2px; font-size:10px; font-weight:900; letter-spacing:0.06em; color:#fff; margin-right:4px;}
+  .stdot.off, .stdot.sb{background:var(--delivered);} .stdot.d{background:var(--orange); color:#1c1200;} .stdot.on{background:var(--enroute); color:#1c1200;}
+  .row-btn2{min-height:44px; min-width:56px; padding:6px 10px; border-radius:var(--radius); border:1px solid var(--ink); background:transparent; color:var(--ink); font-weight:800; font-size:12px; text-transform:uppercase;}
+  .ghost-btn{display:block; width:100%; min-height:50px; margin-top:10px; border-radius:var(--radius); border:1px dashed var(--ink); background:transparent; color:var(--ink); font-weight:900; font-size:13px; text-transform:uppercase; letter-spacing:0.04em;}
+  .odo-row{display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--paper-dim);}
+  .odo-row:last-child{border-bottom:0;}
+  .odo-row .tk{width:82px; flex:0 0 82px; font-weight:900; font-size:14px;}
+  .odo-row input{flex:1; min-width:0; width:0; padding:11px 8px; font-size:15px; border:1px solid #c9bfae; border-radius:var(--radius); background:#fff; color:var(--ink); font-family:"SF Mono",Menlo,monospace;}
+  .odo-row .mi{width:58px; flex:0 0 58px; text-align:right; font-family:"SF Mono",Menlo,monospace; font-weight:900;}
+  .two-btn{display:flex; gap:8px;}
+  .two-btn button{flex:1; min-height:56px; border-radius:var(--radius); font-weight:900; font-size:14px; text-transform:uppercase; letter-spacing:0.04em;}
+  .two-btn .pri{background:var(--orange); border:2px solid var(--orange-dark); color:#1c1200;}
+  .two-btn .sec{background:transparent; border:2px solid var(--ink); color:var(--ink);}
+  .log-remarks{width:100%; min-height:64px; border:1px solid #c9bfae; border-radius:var(--radius); padding:10px; font:inherit; font-size:14px; background:#fff; color:var(--ink); resize:vertical;}
+  .cert-box{margin-top:10px; font-size:13px; line-height:1.45;}
+  .cert-box .signed{color:#2b6845; font-weight:900;}
+  .cert-box .resign{color:var(--cancelled); font-weight:900;}
+  .hist{width:100%; border-collapse:collapse; font-size:12.5px;}
+  .hist th{text-align:left; font-size:9.5px; letter-spacing:0.07em; text-transform:uppercase; color:var(--muted); padding:4px 4px 6px; border-bottom:1px solid #c9bfae;}
+  .hist td{padding:10px 4px; border-bottom:1px solid var(--paper-dim); font-family:"SF Mono",Menlo,monospace;}
+  .hist tr[data-day]{cursor:pointer;}
+  .hist tr.sel td{background:var(--paper-dim);}
+  .hist .n{text-align:right;}
+  .log-set{margin-top:22px; color:#c9bfae; font-size:13px;}
+  .log-set summary{font-size:12px; font-weight:900; letter-spacing:0.1em; text-transform:uppercase; padding:12px 0; min-height:44px;}
+  .log-set .seg{margin-bottom:10px;}
+  .dvir-row{display:flex; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--paper-dim); font-size:13px;}
+  .dvir-row:last-child{border-bottom:0;}
+  .dvir-row .main{flex:1; min-width:0; line-height:1.45;}
+  .chk-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px;}
+  .chk-grid button{min-height:52px; text-align:left; padding:8px 10px; border-radius:var(--radius); border:1px solid #4a463f; background:var(--asphalt-2); color:var(--paper); font-size:13px; font-weight:700; line-height:1.2;}
+  .chk-grid button::before{content:"✓"; display:inline-block; width:18px; color:#6fc28f; font-weight:900;}
+  .chk-grid button.bad{background:#5b1e19; border-color:var(--cancelled); color:#fff;}
+  .chk-grid button.bad::before{content:"✗"; color:#ffb3ac;}
+  .chk-head{display:flex; justify-content:space-between; align-items:center; margin:14px 0 8px;}
+  .chk-head span{font-size:11px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:#9c8f7c;}
+  .chk-head button{min-height:40px; padding:6px 10px; border-radius:var(--radius); border:1px solid #4a463f; background:transparent; color:#c9bfae; font-size:11px; font-weight:800; text-transform:uppercase;}
+  .defect-notes .field label{color:#ffb3ac;}
+  .prior-box{background:var(--asphalt-2); border:1px solid #3a3733; border-left:4px solid var(--enroute); border-radius:var(--radius); padding:10px 12px; font-size:13px; line-height:1.5; margin-bottom:12px; color:#c9bfae;}
+  .prior-box b{color:var(--paper);}
+  .sev-seg button.on[data-safe="yes"]{background:var(--enroute); border-color:var(--enroute); color:#1c1200;}
+  .sev-seg button.on[data-safe="no"]{background:var(--cancelled); border-color:var(--cancelled); color:#fff;}
+  .st-seg{display:grid; grid-template-columns:1fr 1fr; gap:6px;}
+  .st-seg button{min-height:48px; border-radius:var(--radius); border:1px solid #4a463f; background:transparent; color:#c9bfae; font-weight:900; font-size:12px; text-transform:uppercase;}
+  .st-seg button.on{background:var(--paper); color:var(--ink); border-color:var(--paper);}
+  #printArea{display:none;}
+  @media print{
+    body{background:#fff !important; color:#000; padding:0 !important;}
+    body > *:not(#printArea){display:none !important;}
+    #printArea{display:block !important; color:#000; font-family:Helvetica,Arial,sans-serif; font-size:11pt;}
+    #printArea h1{font-size:16pt; margin:0 0 4pt;}
+    #printArea table{width:100%; border-collapse:collapse; margin:6pt 0;}
+    #printArea th, #printArea td{border:1px solid #999; padding:3pt 5pt; text-align:left; font-size:9.5pt;}
+    #printArea .pg{page-break-after:always;}
+    #printArea .sig{margin-top:18pt; border-top:1px solid #000; width:60%; padding-top:3pt; font-size:9pt;}
+  }
 </style>
 </head>
 <body>
@@ -484,8 +595,9 @@
   </div>
   <button class="trailer-chip" id="trailerBtn"><span class="tlabel">Trailer</span><span class="tname" id="trailerName">＋ Hook a trailer</span><span class="tsince" id="trailerSince"></span></button>
   <div class="auto-banner" id="autoBanner"></div>
+  <button class="duty-strip" id="dutyStrip"></button>
 
-  <div class="view-tabs" id="viewTabs"><button data-view="loads" class="on">Loads</button><button data-view="equip">Equipment</button></div>
+  <div class="view-tabs" id="viewTabs"><button data-view="loads" class="on">Loads</button><button data-view="equip">Equipment</button><button data-view="log">Log</button></div>
 
   <div class="stats">
     <div class="stat scheduled"><div class="num" id="statScheduled">0</div><div class="lbl">Scheduled</div></div>
@@ -532,6 +644,75 @@
       <button class="btn-save" id="eqAddBtn" style="width:100%; padding:13px; border-radius:var(--radius); font-weight:800; text-transform:uppercase;">Add machine</button>
     </div>
     <div class="map-hint" id="eqListHint" style="margin-top:8px;"></div>
+  </div>
+  <div id="logView">
+    <div class="load-card" id="dutyCard">
+      <div class="duty-now">
+        <div><div class="big" id="dutyBig">Off duty</div><div class="since" id="dutySince"></div></div>
+        <div class="elapsed" id="dutyElapsed"></div>
+      </div>
+      <div class="duty-btns" id="dutyBtns">
+        <button data-st="off">Off duty<small>done for the day / break</small></button>
+        <button data-st="sb">Sleeper<small>berth</small></button>
+        <button data-st="on">On duty<small>not driving</small></button>
+        <button data-st="d">Driving</button>
+      </div>
+      <div class="clocks" id="logClocks"></div>
+      <div id="logAlerts"></div>
+    </div>
+
+    <div class="log-daybar">
+      <button class="nav" id="logPrev" aria-label="Day before">‹</button>
+      <div class="d" id="logDayLbl"></div>
+      <button class="nav" id="logNext" aria-label="Day after">›</button>
+    </div>
+    <div class="seg mode-seg" id="logMode"><button data-mode="short">Short-haul (local)</button><button data-mode="full">Full log</button></div>
+
+    <div class="load-card" id="logDayCard">
+      <div id="logGrid"></div>
+      <div class="log-tot" id="logTot"></div>
+      <div class="eq-title" style="color:var(--muted); margin:14px 0 4px;">Status changes</div>
+      <div id="logChanges"></div>
+      <button class="ghost-btn" id="logAddChg">＋ Add a missed change</button>
+    </div>
+
+    <div class="eq-title">Trucks &amp; miles</div>
+    <div class="load-card" id="logTrucks"></div>
+
+    <div class="eq-title">Inspections</div>
+    <div class="load-card">
+      <div class="two-btn"><button class="pri" id="preTripBtn">Pre-trip</button><button class="sec" id="postTripBtn">Post-trip</button></div>
+      <div id="logDvirs"></div>
+    </div>
+
+    <div class="eq-title">Loads &amp; tickets (from Load Sheet)</div>
+    <div class="load-card" id="logLoads"></div>
+
+    <div class="eq-title">Remarks &amp; sign</div>
+    <div class="load-card">
+      <textarea class="log-remarks" id="logRemarks" placeholder="Anything the log should explain: delays, weather, a reason for an edit…"></textarea>
+      <div class="cert-box" id="logCert"></div>
+      <div class="two-btn" style="margin-top:10px;"><button class="pri" id="logSign">Sign this day</button><button class="sec" id="logPrint">Print / PDF</button></div>
+      <button class="ghost-btn" id="logCsv">Export log CSV (last 8 days)</button>
+    </div>
+
+    <div class="eq-title">Last 8 days</div>
+    <div class="load-card"><table class="hist" id="logHist"></table><div class="map-hint" id="logCycleHint" style="color:var(--muted);"></div></div>
+
+    <details class="log-set">
+      <summary>Log settings</summary>
+      <div class="field"><label>New days start as</label><div class="seg" id="setMode"><button data-mode="short">Short-haul</button><button data-mode="full">Full log</button></div></div>
+      <div class="field"><label>Hours cycle</label><div class="seg" id="setCycle"><button data-c="70">70 hrs / 8 days</button><button data-c="60">60 hrs / 7 days</button></div></div>
+      <div class="field-row">
+        <div class="field"><label>Carrier</label><input type="text" id="setCarrier" placeholder="Koch Excavating Co."></div>
+        <div class="field"><label>Home terminal</label><input type="text" id="setTerminal" placeholder="Columbus, NE"></div>
+      </div>
+      <div class="field"><label>Yard (for the 150 air-mile check)</label>
+        <div class="map-hint" id="setYardTxt" style="font-size:13px; color:#c9bfae; margin:2px 0 8px;"></div>
+        <button class="btn-cancel" id="setYardBtn" style="width:100%; min-height:48px; border-radius:var(--radius); font-weight:800; text-transform:uppercase;">Set the yard to where I am now</button>
+      </div>
+      <div class="map-hint" style="line-height:1.5;">This log is a paper-log replacement (records of duty status on paper, or the short-haul time record). It is not a registered ELD. Clocks follow the property-carrying rules; split sleeper berth isn't calculated.</div>
+    </details>
   </div>
   <datalist id="eqTypes"><option>Excavator</option><option>Mini excavator</option><option>Dozer</option><option>Wheel loader</option><option>Skid steer</option><option>Compact track loader</option><option>Backhoe</option><option>Motor grader</option><option>Roller</option><option>Off-road truck</option><option>Water truck</option><option>Scraper</option></datalist>
   <datalist id="jobOptions"></datalist>
@@ -748,6 +929,65 @@
   </div>
 </div>
 
+<!-- Duty status change sheet -->
+<div class="modal-backdrop" id="dutyModalBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 id="dutyTitle">Add a status change</h2>
+    <input type="hidden" id="dm_id">
+    <div class="field"><label>Status</label><div class="st-seg" id="dm_st">
+      <button type="button" data-st="off">Off duty</button><button type="button" data-st="sb">Sleeper</button>
+      <button type="button" data-st="d">Driving</button><button type="button" data-st="on">On duty</button></div></div>
+    <div class="field"><label>Time</label><input type="datetime-local" id="dm_at"></div>
+    <div class="field-row">
+      <div class="field"><label>Truck</label><input type="text" id="dm_truck" list="truckOptions" placeholder="unit #"></div>
+      <div class="field"><label>Location</label><input type="text" id="dm_place" placeholder="e.g. Columbus, NE"></div>
+    </div>
+    <div class="field"><label>Note</label><input type="text" id="dm_note" placeholder="e.g. fuel, loading at pit, waiting"></div>
+    <div class="field" id="dm_reasonWrap"><label>Reason for the change</label><input type="text" id="dm_reason" placeholder="e.g. forgot to go on duty at the yard"></div>
+    <div class="map-hint" id="dm_hint"></div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="dm_cancel">Cancel</button>
+      <button class="btn-save" id="dm_save">Save</button>
+    </div>
+    <button class="btn-cancel" id="dm_delete" style="width:100%; margin-top:10px; padding:13px; border-radius:var(--radius); font-weight:800; text-transform:uppercase; color:#e07a72; border-color:#7d2a24;">Delete this change</button>
+  </div>
+</div>
+
+<!-- Pre-trip / post-trip inspection sheet -->
+<div class="modal-backdrop" id="dvirModalBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 id="dvirTitle">Pre-trip inspection</h2>
+    <input type="hidden" id="dv_id">
+    <div class="seg" id="dv_kind" style="margin-bottom:12px;"><button type="button" data-k="pre">Pre-trip</button><button type="button" data-k="post">Post-trip</button></div>
+    <div class="field-row">
+      <div class="field"><label>Truck</label><input type="text" id="dv_truck" list="truckOptions" placeholder="unit #"></div>
+      <div class="field"><label>Odometer</label><input type="text" id="dv_odo" inputmode="decimal" placeholder="optional"></div>
+    </div>
+    <div class="field"><label>Trailer / pup</label><input type="text" id="dv_trailer" placeholder="none"></div>
+    <div id="dv_prior"></div>
+    <div class="chk-head"><span>Truck · tap anything that's wrong</span><button type="button" id="dv_allOk">All OK</button></div>
+    <div class="chk-grid" id="dv_truckItems"></div>
+    <div id="dv_trailerWrap">
+      <div class="chk-head"><span>Trailer / pup</span></div>
+      <div class="chk-grid" id="dv_trailerItems"></div>
+    </div>
+    <div class="defect-notes" id="dv_notes" style="margin-top:12px;"></div>
+    <div class="field" id="dv_safeWrap" style="display:none;"><label>Can it go?</label>
+      <div class="sev-seg" id="dv_safe"><button type="button" data-safe="yes">Safe — minor defect</button><button type="button" data-safe="no">NOT safe — needs shop</button></div></div>
+    <div class="field"><label>Remarks</label><input type="text" id="dv_remarks" placeholder="optional"></div>
+    <div class="field"><label>Driver signature (type your name)</label><input type="text" id="dv_sig" autocomplete="name"></div>
+    <div class="map-hint" id="dv_hint"></div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="dv_cancel">Cancel</button>
+      <button class="btn-save" id="dv_save">No defects · Sign</button>
+    </div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+
 <!-- Truck Modal -->
 <div class="modal-backdrop" id="truckModalBackdrop">
   <div class="modal">
@@ -961,7 +1201,7 @@
         <h3>Backup</h3>
         <p>Without crew sync, your loads live only on this device: clearing the browser's site data or uninstalling the app erases them. A backup file saves everything; keep it in Files/Downloads or email it to yourself. It can also move loads between devices.</p>
         <p>Last backup: <span class="backup-status" id="backupStatus">never</span></p>
-        <p style="margin-top:6px; font-size:11px;">App version 2026.10.29-2</p>
+        <p style="margin-top:6px; font-size:11px;">App version 2026.11.10-1</p>
         <div class="btn-row">
           <button class="go" id="backupBtn">Save backup</button>
           <label class="icon-btn" for="restoreFile" style="flex:1; justify-content:center; text-transform:uppercase; font-size:12px; font-weight:800; letter-spacing:0.03em;">Restore backup</label>
@@ -2031,7 +2271,9 @@
 
   // ---------- modal wiring ----------
   document.getElementById("newLoadBtn").addEventListener("click", function(){
-    if(document.body.classList.contains("view-equip")) openUsageModal(null); else openLoadModal(null);
+    if(document.body.classList.contains("view-equip")) openUsageModal(null);
+    else if(document.body.classList.contains("view-log")) openDvir("pre");
+    else openLoadModal(null);
   });
   document.getElementById("cancelLoadBtn").addEventListener("click", closeLoadModal);
   document.getElementById("saveLoadBtn").addEventListener("click", saveLoadFromForm);
@@ -2205,6 +2447,18 @@
         if(h.dropNote) L.push({k:"sub", t:"Drop note: " + h.dropNote});
       });
     }
+    // driver log for the day
+    if(typeof HOS !== "undefined" && HOS.eventsOn(duty, day).length + (HOS.dayShift(duty, day) ? 1 : 0)){
+      const tot = HOS.dayTotals(duty, day), sh = HOS.dayShift(duty, day), mi = dayMiles(day);
+      L.push({k:"job", t:"Driver log · " + (modeFor(day) === "short" ? "short-haul" : "full log")});
+      if(sh) L.push({k:"item", t:"On duty " + fmtTime(new Date(sh.start).toISOString()) + " – " + (sh.open ? "still on" : fmtTime(new Date(sh.end).toISOString())) +
+        " · " + HOS.hm(tot.d + tot.on) + " on duty · " + HOS.hm(tot.d) + " driving" + (mi ? " · " + commas(mi) + " mi" : "")});
+      const dv = dvirs.filter(d => d.date === day);
+      dv.forEach(d => L.push({k:"sub", t:(d.kind === "pre" ? "Pre-trip " : "Post-trip ") + truckLbl(d.truck) + ": " +
+        ((d.defects || []).length ? d.defects.map(x => x.label + (x.note ? " (" + x.note + ")" : "")).join(", ") + (d.safe === "no" ? " · NOT SAFE" : "") : "no defects")}));
+      const vio = HOS.evaluate(duty, Date.now(), hosOpts()).violations.filter(v => v.day === day);
+      vio.forEach(v => L.push({k:"sub", t:"⚠ " + v.text + " (" + fmtTime(v.at) + ")"}));
+    }
     if(L.filter(x => x.k === "job").length === 0){
       L.push({k:"empty", t:"Nothing hauled or clocked on this day."});
       return L;
@@ -2369,7 +2623,7 @@
     document.getElementById("importBtn").innerHTML = "Data" + (backupStale() ? '<span class="dot"></span>' : "");
   }
   function downloadBackup(){
-    const payload = {app: "loadsheet", version: 1, exportedAt: new Date().toISOString(), settings: getSettings(), loads: loads, hitches: hitches, trailers: trailers, usage: usage, equipment: equipment};
+    const payload = {app: "loadsheet", version: 1, exportedAt: new Date().toISOString(), settings: getSettings(), loads: loads, hitches: hitches, trailers: trailers, usage: usage, equipment: equipment, duty: duty, logDays: logDays, dvirs: dvirs};
     download("loadsheet-backup-" + localDay() + ".json", JSON.stringify(payload, null, 1), "application/json");
     try{ localStorage.setItem(BACKUP_KEY, new Date().toISOString()); }catch(e){}
     renderBackupStatus();
@@ -2417,6 +2671,16 @@
         data.equipment.forEach(e => { if(e && e.id && !equipment.some(x => x.id === e.id)) equipment.push(e); });
         saveEquipment();
       }
+      [["duty", "at"], ["logDays", "date"], ["dvirs", "at"]].forEach(function(pair){
+        const k = pair[0], need = pair[1];
+        if(!Array.isArray(data[k])) return;
+        const cur = k === "duty" ? duty : k === "logDays" ? logDays : dvirs;
+        const by = {}; cur.forEach(x => by[x.id] = x);
+        data[k].filter(x => x && x.id && x[need]).forEach(x => by[x.id] = x);
+        const merged = Object.keys(by).map(id => by[id]);
+        if(k === "duty") duty = merged; else if(k === "logDays") logDays = merged; else dvirs = merged;
+      });
+      persistDutyQuiet(); persistLogDaysQuiet(); persistDvirsQuiet(); renderDutyStrip();
       if(data.settings && data.settings.driver && !getSettings().driver) saveSettings({driver: data.settings.driver});
       persist();
       document.getElementById("importModalBackdrop").classList.remove("open");
@@ -3115,10 +3379,13 @@
 
   function setView(v){
     document.body.classList.toggle("view-equip", v === "equip");
+    document.body.classList.toggle("view-log", v === "log");
     document.querySelectorAll("#viewTabs button").forEach(b => b.classList.toggle("on", b.dataset.view === v));
     try{ localStorage.setItem("loadsheet_view", v); }catch(e){}
-    document.getElementById("newLoadBtn").textContent = v === "equip" ? "+ Hours" : "+ New";
+    document.getElementById("newLoadBtn").textContent = v === "equip" ? "+ Hours" : v === "log" ? "+ Pre-trip" : "+ New";
     if(v === "equip") renderEquip();
+    if(v === "log"){ renderLogSettings(); renderLogAll(); }
+    renderDutyStrip();
   }
   document.getElementById("viewTabs").addEventListener("click", function(e){
     const b = e.target.closest("button"); if(b) setView(b.dataset.view);
@@ -3288,6 +3555,542 @@
   document.getElementById("u_saveAnother").addEventListener("click", function(){ saveUsage(true); });
   document.getElementById("logEquipBtn").addEventListener("click", function(){ openUsageModal(null); });
 
+
+  // ================= DRIVER LOG =================
+  // duty-status changes, a day record (mode, odometers, remarks, signature) and pre/post-trip inspections.
+  // Clock math lives in hos.js (shared with the office page).
+  const DUTY_KEY = "loadsheet_duty_v1", LOGDAYS_KEY = "loadsheet_logdays_v1", DVIR_KEY = "loadsheet_dvir_v1";
+  const HH = 3600000;
+  let duty = [], logDays = [], dvirs = [];
+  let logDay = localDay();
+  function loadLog(){
+    try{ duty = JSON.parse(localStorage.getItem(DUTY_KEY)) || []; }catch(e){ duty = []; }
+    try{ logDays = JSON.parse(localStorage.getItem(LOGDAYS_KEY)) || []; }catch(e){ logDays = []; }
+    try{ dvirs = JSON.parse(localStorage.getItem(DVIR_KEY)) || []; }catch(e){ dvirs = []; }
+  }
+  function persistDutyQuiet(){ try{ localStorage.setItem(DUTY_KEY, JSON.stringify(duty)); }catch(e){} }
+  function persistLogDaysQuiet(){ try{ localStorage.setItem(LOGDAYS_KEY, JSON.stringify(logDays)); }catch(e){} }
+  function persistDvirsQuiet(){ try{ localStorage.setItem(DVIR_KEY, JSON.stringify(dvirs)); }catch(e){} }
+  function syncNow(){ try{ window.LoadSheetCloud && window.LoadSheetCloud.onLocalChange(); }catch(e){ console.error(e); } }
+  function persistLog(){ persistDutyQuiet(); persistLogDaysQuiet(); persistDvirsQuiet(); syncNow(); }
+
+  const ST_LBL = {off: "Off duty", sb: "Sleeper", d: "Driving", on: "On duty"};
+  function dayRec(day, create){
+    // a driver could end up with two copies of a day from two devices; use the newest
+    const list = logDays.filter(d => d.date === day).sort((a,b) => (b.updatedAt || b.createdAt || "").localeCompare(a.updatedAt || a.createdAt || ""));
+    if(list[0] || !create) return list[0] || null;
+    const r = {id: uid(), date: day, mode: getSettings().logMode || "short", odo: {}, remarks: "", certifiedAt: "", certName: "", certSig: "", createdAt: new Date().toISOString()};
+    logDays.push(r);
+    return r;
+  }
+  function modeFor(day){ const r = dayRec(day); return (r && r.mode) || getSettings().logMode || "short"; }
+  function hosOpts(){ return {modeFor: modeFor, cycle: getSettings().logCycle || "70"}; }
+  function lastDuty(){ const s = HOS.sorted(duty).filter(e => new Date(e.at).getTime() <= Date.now()); return s[s.length - 1] || null; }
+  function hasLog(){ return duty.length > 0; }
+  function toLocalInput(d){
+    d = new Date(d);
+    const p = n => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "T" + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function hm(ms){ return HOS.hm(Math.max(0, ms)); }
+  function shiftDay(day, n){ const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return localDay(d); }
+  function placeFor(lat, lng){
+    if(lat == null || lng == null) return "";
+    return placeName(lat, lng) || HOS.nearestPlace(lat, lng) || coordTxt(lat, lng);
+  }
+  function yard(){
+    const y = getSettings().logYard;
+    return y && isFinite(y.lat) ? y : {lat: 41.4297, lng: -97.3684, name: "Columbus, NE (town center)"};
+  }
+
+  // ---------- status changes ----------
+  function setDuty(st){
+    const last = lastDuty();
+    if(last && last.status === st){ flash("Already " + ST_LBL[st].toLowerCase()); return; }
+    const hitch = activeHitch();
+    const now = new Date().toISOString();
+    const ev = {id: uid(), at: now, status: st, truck: curTruck(), trailer: hitch ? hitchLabel(hitch) : "", lat: null, lng: null, place: "", odo: "", note: "", createdAt: now};
+    duty.push(ev);
+    dayRec(localDay(), true);
+    persistLog();
+    renderLogAll(); renderDutyStrip();
+    showToast(ST_LBL[st] + " " + fmtTime(now) + (ev.truck ? " · " + truckLbl(ev.truck) : ""), null, function(){
+      duty = duty.filter(x => x.id !== ev.id); persistDutyQuiet(); renderLogAll(); renderDutyStrip();
+    });
+    // where: fill in when GPS answers (logs need a location at each change)
+    getSpot().then(function(spot){
+      const e = duty.find(x => x.id === ev.id);
+      if(!e || !spot) return;
+      e.lat = spot.lat; e.lng = spot.lng;
+      if(!e.place) e.place = placeFor(spot.lat, spot.lng);
+      persistLog(); if(isLogView()) renderLogDay();
+    });
+  }
+  document.getElementById("dutyBtns").addEventListener("click", function(e){
+    const b = e.target.closest("button[data-st]"); if(b) setDuty(b.dataset.st);
+  });
+
+  // ---------- add / edit a change ----------
+  let dmSt = "on";
+  function renderDmSt(){ document.querySelectorAll("#dm_st button").forEach(b => b.classList.toggle("on", b.dataset.st === dmSt)); }
+  function openDutyModal(ev, atIso, st){
+    document.getElementById("dutyTitle").textContent = ev ? "Edit status change" : "Add a status change";
+    document.getElementById("dm_id").value = ev ? ev.id : "";
+    dmSt = ev ? ev.status : (st || "on"); renderDmSt();
+    const def = atIso || (logDay === localDay() ? new Date().toISOString() : new Date(logDay + "T07:00:00").toISOString());
+    document.getElementById("dm_at").value = toLocalInput(ev ? ev.at : def);
+    document.getElementById("dm_truck").value = ev ? (ev.truck || "") : curTruck();
+    document.getElementById("dm_place").value = ev ? (ev.place || "") : "";
+    document.getElementById("dm_note").value = ev ? (ev.note || "") : "";
+    document.getElementById("dm_reason").value = "";
+    document.getElementById("dm_reasonWrap").style.display = ev ? "" : "none";
+    document.getElementById("dm_delete").style.display = ev ? "" : "none";
+    document.getElementById("dm_hint").textContent = ev && ev.edits && ev.edits.length ? "Edited before: " + ev.edits.map(x => fmtDay(localDay(new Date(x.at))) + " " + (x.reason || "no reason")).join("; ") : "";
+    document.getElementById("dutyModalBackdrop").classList.add("open");
+  }
+  function closeDutyModal(){ document.getElementById("dutyModalBackdrop").classList.remove("open"); }
+  document.getElementById("dm_st").addEventListener("click", function(e){ const b = e.target.closest("button"); if(b){ dmSt = b.dataset.st; renderDmSt(); } });
+  document.getElementById("dm_cancel").addEventListener("click", closeDutyModal);
+  document.getElementById("dutyModalBackdrop").addEventListener("click", function(e){ if(e.target === this) closeDutyModal(); });
+  document.getElementById("dm_save").addEventListener("click", function(){
+    const v = document.getElementById("dm_at").value;
+    if(!v){ document.getElementById("dm_hint").textContent = "Pick the time."; return; }
+    const at = new Date(v);
+    if(at.getTime() > Date.now() + 60000){ document.getElementById("dm_hint").textContent = "That time is in the future."; return; }
+    const id = document.getElementById("dm_id").value;
+    const old = id ? duty.find(x => x.id === id) : null;
+    const truck = document.getElementById("dm_truck").value.trim();
+    if(truck) rememberTruck(truck);
+    const rec = Object.assign({}, old || {id: uid(), lat: null, lng: null, odo: "", trailer: "", createdAt: new Date().toISOString(), manual: true}, {
+      at: at.toISOString(), status: dmSt, truck: truck,
+      place: document.getElementById("dm_place").value.trim(), note: document.getElementById("dm_note").value.trim()
+    });
+    if(old){
+      const changed = old.at !== rec.at || old.status !== rec.status || old.truck !== rec.truck || (old.place || "") !== rec.place || (old.note || "") !== rec.note;
+      if(!changed){ closeDutyModal(); return; }
+      rec.edits = (old.edits || []).concat([{at: new Date().toISOString(), reason: document.getElementById("dm_reason").value.trim(),
+        was: {at: old.at, status: old.status, truck: old.truck || "", place: old.place || ""}}]);
+      duty[duty.indexOf(old)] = rec;
+    } else duty.push(rec);
+    dayRec(localDay(at), true);
+    persistLog(); closeDutyModal(); renderLogAll(); renderDutyStrip();
+    flash((old ? "Changed: " : "Added: ") + ST_LBL[rec.status] + " at " + fmtTime(rec.at));
+  });
+  document.getElementById("dm_delete").addEventListener("click", function(){
+    const id = document.getElementById("dm_id").value;
+    const old = duty.find(x => x.id === id); if(!old) return;
+    duty = duty.filter(x => x.id !== id);
+    persistLog(); closeDutyModal(); renderLogAll(); renderDutyStrip();
+    showToast("Deleted " + ST_LBL[old.status] + " at " + fmtTime(old.at), null, function(){ duty.push(old); persistDutyQuiet(); renderLogAll(); renderDutyStrip(); });
+  });
+  document.getElementById("logAddChg").addEventListener("click", function(){ openDutyModal(null); });
+  document.getElementById("logChanges").addEventListener("click", function(e){
+    const row = e.target.closest("[data-did]"); if(!row) return;
+    openDutyModal(duty.find(x => x.id === row.dataset.did));
+  });
+
+  // ---------- what goes on the selected day ----------
+  function loadsOn(day){ return loads.filter(l => l.status === "Delivered" && dayOfLoad(l) === day); }
+  function trucksOn(day){
+    const set = [];
+    const add = t => { t = (t || "").trim(); if(t && set.indexOf(t) < 0) set.push(t); };
+    HOS.eventsOn(duty, day).forEach(e => add(e.truck));
+    loadsOn(day).forEach(l => add(l.truck));
+    hitches.forEach(h => { if(localDay(new Date(h.hookAt)) === day) add(h.truck); });
+    dvirs.forEach(d => { if(d.date === day) add(d.truck); });
+    const r = dayRec(day);
+    if(r && r.odo) Object.keys(r.odo).forEach(add);
+    if(day === localDay() && curTruck() && lastDuty() && HOS.isWork(lastDuty().status)) add(curTruck());
+    return set;
+  }
+  function dayMiles(day){
+    const r = dayRec(day); let mi = 0;
+    if(r && r.odo) Object.keys(r.odo).forEach(t => { const o = r.odo[t] || {}; const a = parseFloat(o.start), b = parseFloat(o.end); if(!isNaN(a) && !isNaN(b) && b > a && b - a < 2000) mi += b - a; });
+    return Math.round(mi * 10) / 10;
+  }
+  function dayHash(day){
+    const r = dayRec(day) || {};
+    return JSON.stringify([HOS.eventsOn(duty, day).map(e => [e.at, e.status, e.truck || "", e.place || ""]), r.odo || {}, r.remarks || "", r.mode || ""]);
+  }
+  // farthest point from the yard today (GPS at status changes and the day's load pins)
+  function farthest(day){
+    const y = yard(); let best = null;
+    const pts = [];
+    HOS.eventsOn(duty, day).forEach(e => { if(e.lat != null) pts.push({lat: e.lat, lng: e.lng, what: e.place || "status change"}); });
+    loadsOn(day).forEach(l => [l.pickup, l.dropoff].forEach(p => { if(p && p.lat) pts.push({lat: p.lat, lng: p.lng, what: l.customer || p.address || "load"}); }));
+    pts.forEach(p => { const d = HOS.airMiles(y, p); if(!best || d > best.d) best = {d: d, what: p.what}; });
+    return best;
+  }
+
+  // ---------- inspections ----------
+  function openDefects(truck){
+    return dvirs.filter(d => d.truck === truck && (d.defects || []).length && d.repairStatus !== "repaired")
+      .sort((a,b) => b.at.localeCompare(a.at));
+  }
+  function repairsToAck(truck){
+    return dvirs.filter(d => d.truck === truck && d.repairStatus === "repaired" && !d.ackAt);
+  }
+  function preTripDone(truck, day){ return dvirs.some(d => d.kind === "pre" && d.truck === truck && d.date === day); }
+
+  let dvKind = "pre", dvBad = {}, dvSafe = "";
+  function dvItems(){ return HOS.DVIR_ITEMS.truck.concat(document.getElementById("dv_trailer").value.trim() ? HOS.DVIR_ITEMS.trailer : []); }
+  function renderDvir(){
+    document.querySelectorAll("#dv_kind button").forEach(b => b.classList.toggle("on", b.dataset.k === dvKind));
+    document.getElementById("dvirTitle").textContent = (dvKind === "pre" ? "Pre-trip" : "Post-trip") + " inspection";
+    const btn = i => '<button type="button" data-k="' + i[0] + '" class="' + (dvBad[i[0]] != null ? "bad" : "") + '">' + escapeHtml(i[1]) + '</button>';
+    document.getElementById("dv_truckItems").innerHTML = HOS.DVIR_ITEMS.truck.map(btn).join("");
+    const hasTr = !!document.getElementById("dv_trailer").value.trim();
+    document.getElementById("dv_trailerWrap").style.display = hasTr ? "" : "none";
+    document.getElementById("dv_trailerItems").innerHTML = HOS.DVIR_ITEMS.trailer.map(btn).join("");
+    const bad = dvItems().filter(i => dvBad[i[0]] != null);
+    document.getElementById("dv_notes").innerHTML = bad.map(i => '<div class="field"><label>' + escapeHtml(i[1]) + ' — what\'s wrong?</label><input type="text" data-note="' + i[0] + '" value="' + escapeHtml(dvBad[i[0]] || "") + '" placeholder="e.g. left marker light out"></div>').join("");
+    document.getElementById("dv_safeWrap").style.display = bad.length ? "" : "none";
+    document.querySelectorAll("#dv_safe button").forEach(b => b.classList.toggle("on", b.dataset.safe === dvSafe));
+    document.getElementById("dv_save").textContent = bad.length ? "Report " + bad.length + " defect" + (bad.length === 1 ? "" : "s") + " · Sign" : "No defects · Sign";
+    renderDvPrior();
+  }
+  function renderDvPrior(){
+    const t = document.getElementById("dv_truck").value.trim();
+    const id = document.getElementById("dv_id").value;
+    const open = t ? openDefects(t).filter(d => d.id !== id) : [];
+    const fixed = t ? repairsToAck(t).filter(d => d.id !== id) : [];
+    let h = "";
+    if(fixed.length) h += '<div class="prior-box"><b>Shop repaired since your last inspection:</b><br>' + fixed.map(d => escapeHtml(d.defects.map(x => x.label + (x.note ? " (" + x.note + ")" : "")).join(", ")) +
+      (d.repairNote ? " → " + escapeHtml(d.repairNote) : "") + (d.repairedBy ? ' <span style="color:#9c8f7c">· ' + escapeHtml(d.repairedBy) + '</span>' : "")).join("<br>") +
+      '<label class="check-row" style="margin-top:8px;"><input type="checkbox" id="dv_ack"> I looked at the repair</label></div>';
+    if(open.length) h += '<div class="prior-box" style="border-left-color:var(--cancelled);"><b>Still open on ' + escapeHtml(truckLbl(t)) + ':</b><br>' +
+      open.map(d => escapeHtml(fmtDay(d.date) + ": " + d.defects.map(x => x.label + (x.note ? " (" + x.note + ")" : "")).join(", ")) + (d.safe === "no" ? ' <b style="color:#e07a72">· NOT safe</b>' : "")).join("<br>") + '</div>';
+    document.getElementById("dv_prior").innerHTML = h;
+  }
+  function openDvir(kind, existing){
+    dvKind = existing ? existing.kind : kind;
+    dvBad = {}; dvSafe = existing ? (existing.safe || "") : "";
+    if(existing) (existing.defects || []).forEach(x => dvBad[x.key] = x.note || "");
+    const h = activeHitch();
+    document.getElementById("dv_id").value = existing ? existing.id : "";
+    document.getElementById("dv_truck").value = existing ? existing.truck || "" : curTruck();
+    document.getElementById("dv_trailer").value = existing ? existing.trailer || "" : (h ? hitchLabel(h) : "");
+    document.getElementById("dv_odo").value = existing ? existing.odo || "" : "";
+    document.getElementById("dv_remarks").value = existing ? existing.remarks || "" : "";
+    document.getElementById("dv_sig").value = existing ? existing.sigName || "" : (getSettings().driver || "");
+    document.getElementById("dv_hint").textContent = "";
+    renderDvir();
+    document.getElementById("dvirModalBackdrop").classList.add("open");
+  }
+  function closeDvir(){ document.getElementById("dvirModalBackdrop").classList.remove("open"); }
+  document.getElementById("dv_kind").addEventListener("click", function(e){ const b = e.target.closest("button"); if(b){ dvKind = b.dataset.k; renderDvir(); } });
+  document.getElementById("dv_safe").addEventListener("click", function(e){ const b = e.target.closest("button"); if(b){ dvSafe = b.dataset.safe; renderDvir(); } });
+  ["dv_truckItems", "dv_trailerItems"].forEach(id => document.getElementById(id).addEventListener("click", function(e){
+    const b = e.target.closest("button[data-k]"); if(!b) return;
+    const k = b.dataset.k;
+    if(dvBad[k] != null) delete dvBad[k]; else dvBad[k] = "";
+    renderDvir();
+    if(dvBad[k] != null){ const inp = document.querySelector('#dv_notes input[data-note="' + k + '"]'); if(inp) inp.focus(); }
+  }));
+  document.getElementById("dv_notes").addEventListener("input", function(e){ const k = e.target.dataset.note; if(k) dvBad[k] = e.target.value; });
+  document.getElementById("dv_allOk").addEventListener("click", function(){ dvBad = {}; dvSafe = ""; renderDvir(); });
+  document.getElementById("dv_trailer").addEventListener("input", renderDvir);
+  document.getElementById("dv_truck").addEventListener("change", renderDvPrior);
+  document.getElementById("dv_cancel").addEventListener("click", closeDvir);
+  document.getElementById("dvirModalBackdrop").addEventListener("click", function(e){ if(e.target === this) closeDvir(); });
+  document.getElementById("dv_save").addEventListener("click", function(){
+    const hint = document.getElementById("dv_hint");
+    const truck = document.getElementById("dv_truck").value.trim();
+    const sig = document.getElementById("dv_sig").value.trim();
+    if(!truck){ hint.textContent = "Which truck?"; document.getElementById("dv_truck").focus(); return; }
+    const defects = dvItems().filter(i => dvBad[i[0]] != null).map(i => ({key: i[0], label: i[1], note: (dvBad[i[0]] || "").trim()}));
+    if(defects.length && !dvSafe){ hint.textContent = "Say whether it's safe to run."; return; }
+    if(!sig){ hint.textContent = "Type your name to sign."; document.getElementById("dv_sig").focus(); return; }
+    rememberTruck(truck);
+    if(!getSettings().driver) saveSettings({driver: sig});
+    const ack = document.getElementById("dv_ack");
+    if(ack && ack.checked){ const now = new Date().toISOString(); repairsToAck(truck).forEach(d => { d.ackAt = now; d.ackBy = sig; }); }
+    const id = document.getElementById("dv_id").value;
+    const old = id ? dvirs.find(d => d.id === id) : null;
+    const now = new Date().toISOString();
+    const rec = Object.assign({}, old || {id: uid(), at: now, date: localDay(), createdAt: now}, {
+      kind: dvKind, truck: truck, trailer: document.getElementById("dv_trailer").value.trim(), odo: document.getElementById("dv_odo").value.trim().replace(/[^\d.]/g, ""),
+      defects: defects, safe: defects.length ? dvSafe : "", remarks: document.getElementById("dv_remarks").value.trim(), sigName: sig, signedAt: now
+    });
+    const hadDefects = old && JSON.stringify(old.defects || []) === JSON.stringify(defects);
+    rec.repairStatus = defects.length ? (hadDefects ? (old.repairStatus || "open") : "open") : "";
+    if(old) dvirs[dvirs.indexOf(old)] = rec; else dvirs.push(rec);
+    // odometer from a pre-trip starts the truck's miles for the day; a post-trip ends them
+    if(rec.odo){
+      const r = dayRec(rec.date, true); r.odo = r.odo || {}; r.odo[truck] = r.odo[truck] || {};
+      if(rec.kind === "pre" && !r.odo[truck].start) r.odo[truck].start = rec.odo;
+      if(rec.kind === "post") r.odo[truck].end = rec.odo;
+    }
+    persistLog(); closeDvir(); renderLogAll(); renderDutyStrip();
+    flash((rec.kind === "pre" ? "Pre-trip" : "Post-trip") + " signed · " + truckLbl(truck) + (defects.length ? " · " + defects.length + " defect" + (defects.length === 1 ? "" : "s") + " sent to the shop" : " · no defects"));
+  });
+  document.getElementById("preTripBtn").addEventListener("click", function(){ openDvir("pre"); });
+  document.getElementById("postTripBtn").addEventListener("click", function(){ openDvir("post"); });
+  document.getElementById("logDvirs").addEventListener("click", function(e){
+    const row = e.target.closest("[data-dv]"); if(row) openDvir(null, dvirs.find(d => d.id === row.dataset.dv));
+  });
+
+  // ---------- rendering ----------
+  function isLogView(){ return document.body.classList.contains("view-log"); }
+  function clockTile(label, ms, warnAt){
+    const cls = ms <= 0 ? "out" : ms <= warnAt ? "low" : "";
+    return '<div class="clk ' + cls + '"><div class="v">' + hm(ms) + '</div><div class="l">' + label + '</div></div>';
+  }
+  function renderLogLive(){
+    const last = lastDuty();
+    const st = last ? last.status : "off";
+    const ev = HOS.evaluate(duty, Date.now(), hosOpts());
+    const c = ev.clocks;
+    const today = localDay();
+    const short = modeFor(today) === "short";
+    document.getElementById("dutyBig").textContent = ST_LBL[st];
+    document.getElementById("dutyBig").style.color = st === "d" ? "var(--orange-dark)" : st === "on" ? "#7a5300" : "var(--delivered)";
+    document.getElementById("dutySince").innerHTML = last
+      ? "since " + escapeHtml(fmtTime(last.at)) + (localDay(new Date(last.at)) !== today ? " " + escapeHtml(fmtDay(localDay(new Date(last.at)))) : "") +
+        (curTruck() ? " · " + escapeHtml(truckLbl(curTruck())) : "") + (activeHitch() ? " + " + escapeHtml(hitchLabel(activeHitch())) : "") +
+        (last.place ? "<br>" + escapeHtml(last.place) : "")
+      : "Tap <b>On duty</b> when you start. Each tap is stamped with the time, truck and where you are.";
+    document.getElementById("dutyElapsed").textContent = last ? hm(Date.now() - new Date(last.at).getTime()) : "";
+    document.querySelectorAll("#dutyBtns button").forEach(b => b.classList.toggle("on", !!last && b.dataset.st === st));
+    document.getElementById("dutyBtns").classList.toggle("short", short && st !== "sb");
+    const tiles = [clockTile("Drive left", c.driveLeft, HH), clockTile(short ? "Back to yard" : "Shift left", c.windowLeft, HH)];
+    if(!short) tiles.push(clockTile("Break in", c.breakLeft, 30 * 60000));
+    tiles.push(clockTile("Cycle left", c.cycleLeft, 5 * HH));
+    const cl = document.getElementById("logClocks");
+    cl.className = "clocks" + (short ? " three" : "");
+    cl.innerHTML = tiles.join("");
+    renderLogAlerts(ev);
+  }
+  function renderLogAlerts(ev){
+    const out = [];
+    const today = localDay();
+    const last = lastDuty();
+    const working = last && HOS.isWork(last.status);
+    const t = curTruck();
+    if(working && t && !preTripDone(t, today)) out.push({cls: "", t: "No pre-trip on " + truckLbl(t) + " today.", btn: "Pre-trip", act: "pre"});
+    if(t && openDefects(t).some(d => d.safe === "no")) out.push({cls: "bad", t: truckLbl(t) + " has a defect marked NOT safe and the shop hasn't repaired it.", btn: "", act: ""});
+    else if(t && openDefects(t).length) out.push({cls: "", t: truckLbl(t) + ": " + openDefects(t)[0].defects.map(x => x.label).join(", ") + " still open with the shop.", btn: "", act: ""});
+    if(t && repairsToAck(t).length) out.push({cls: "ok", t: "Shop repaired a defect on " + truckLbl(t) + ". Look it over on your next pre-trip.", btn: "", act: ""});
+    // loads hauled while the log says off duty
+    const offLoad = loadsOn(logDay).map(l => ({l: l, t: new Date(l.deliveredAt || l.createdAt).getTime()}))
+      .filter(x => { const segs = HOS.segments(duty, x.t - 1, x.t); return HOS.isRest(segs.length ? segs[segs.length - 1].st : "off"); })
+      .sort((a,b) => a.t - b.t)[0];
+    if(offLoad && hasLog()) out.push({cls: "bad", t: "A load was hauled at " + fmtTime(new Date(offLoad.t).toISOString()) + " (" + (offLoad.l.customer || "load") + ") while the log shows off duty.", btn: "Fix", act: "fix:" + offLoad.t});
+    if(!hasLog() && loadsOn(today).length) out.push({cls: "", t: "You've hauled today but haven't started your log.", btn: "Add start", act: "fix:" + Math.min.apply(null, loadsOn(today).map(l => new Date(l.deliveredAt || l.createdAt).getTime()))});
+    // rule problems on the selected day
+    ev.violations.filter(v => v.day === logDay).forEach(v => out.push({cls: "bad", t: v.text + " (" + fmtTime(v.at) + ").", btn: "", act: ""}));
+    if(modeFor(logDay) === "short"){
+      const sh = HOS.dayShift(duty, logDay);
+      const far = farthest(logDay);
+      if(sh && sh.end - sh.start > 14 * HH) out.push({cls: "bad", t: "More than 14 hours from start to finish: this day can't be short-haul. It needs a full log.", btn: "Full log", act: "full"});
+      else if(far && far.d > 150) out.push({cls: "bad", t: Math.round(far.d) + " air miles from the yard (" + far.what + "): past the 150-mile short-haul limit. This day needs a full log.", btn: "Full log", act: "full"});
+    }
+    document.getElementById("logAlerts").innerHTML = out.map(a => '<div class="log-alert ' + a.cls + '"><div class="t">' + escapeHtml(a.t) + '</div>' +
+      (a.btn ? '<button data-act="' + escapeHtml(a.act) + '">' + escapeHtml(a.btn) + '</button>' : '') + '</div>').join("");
+  }
+  document.getElementById("logAlerts").addEventListener("click", function(e){
+    const b = e.target.closest("button[data-act]"); if(!b) return;
+    const a = b.dataset.act;
+    if(a === "pre") openDvir("pre");
+    else if(a === "full"){ const r = dayRec(logDay, true); r.mode = "full"; persistLog(); renderLogAll(); }
+    else if(a.indexOf("fix:") === 0) openDutyModal(null, new Date(parseInt(a.slice(4), 10)).toISOString(), "on");
+  });
+
+  function renderLogDay(){
+    const today = localDay();
+    const r = dayRec(logDay);
+    const mode = modeFor(logDay);
+    const ev = HOS.evaluate(duty, Date.now(), hosOpts());
+    document.getElementById("logDayLbl").innerHTML = escapeHtml(logDay === today ? "Today" : logDay === shiftDay(today, -1) ? "Yesterday" : fmtDay(logDay)) +
+      '<small>' + escapeHtml(longDay(logDay)) + '</small>';
+    document.getElementById("logNext").style.visibility = logDay >= today ? "hidden" : "";
+    document.querySelectorAll("#logMode button").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+    document.getElementById("logGrid").innerHTML = HOS.gridSvg(duty, logDay, Date.now(), {violations: ev.violations});
+    const tot = HOS.dayTotals(duty, logDay);
+    const sh = HOS.dayShift(duty, logDay);
+    const parts = ['On duty <b>' + hm(tot.d + tot.on) + '</b>', 'Driving <b>' + hm(tot.d) + '</b>'];
+    if(sh) parts.unshift((mode === "short" ? "Time record " : "Shift ") + '<b>' + fmtTime(new Date(sh.start).toISOString()) + '–' + (sh.open ? "now" : fmtTime(new Date(sh.end).toISOString())) + '</b>');
+    const mi = dayMiles(logDay); if(mi) parts.push('Miles <b>' + commas(mi) + '</b>');
+    document.getElementById("logTot").innerHTML = parts.map(p => '<span>' + p + '</span>').join("");
+    // status changes
+    const evs = HOS.eventsOn(duty, logDay);
+    const prior = HOS.segments(duty, HOS.dayStart(logDay) - 1, HOS.dayStart(logDay))[0];
+    let h = "";
+    if(prior && prior.ev && evs.length) h += '<div class="chg"><div class="tm">12:00a</div><div class="main"><span class="stdot ' + prior.st + '">' + HOS.STATUS[prior.st].short + '</span> carried over from the day before</div></div>';
+    h += evs.map(e => '<div class="chg" data-did="' + escapeHtml(e.id) + '"><div class="tm">' + escapeHtml(fmtTime(e.at).replace(" AM", "a").replace(" PM", "p")) + '</div>' +
+      '<div class="main"><span class="stdot ' + e.status + '">' + HOS.STATUS[e.status].short + '</span> ' + escapeHtml(e.truck ? truckLbl(e.truck) : "") + (e.trailer ? " + " + escapeHtml(e.trailer) : "") +
+      '<br><span class="sub">' + escapeHtml(e.place || (e.lat != null ? coordTxt(e.lat, e.lng) : "no location")) + (e.note ? " · " + escapeHtml(e.note) : "") + (e.edits && e.edits.length ? " · edited" : "") + '</span></div>' +
+      '<button class="row-btn2">Edit</button></div>').join("");
+    document.getElementById("logChanges").innerHTML = h || '<div class="map-hint" style="color:var(--muted); padding:8px 0;">No changes this day' + (logDay === today ? ". Tap a status above to start." : ".") + '</div>';
+    // trucks & miles
+    const tks = trucksOn(logDay);
+    const odo = (r && r.odo) || {};
+    document.getElementById("logTrucks").innerHTML = (tks.length ? '<div class="odo-row" style="font-size:10px; font-weight:900; letter-spacing:0.07em; text-transform:uppercase; color:var(--muted); padding-top:0;"><span class="tk">Truck</span><span style="flex:1">Start odometer</span><span style="flex:1">End odometer</span><span class="mi">Miles</span></div>' : '') +
+      tks.map(t => { const o = odo[t] || {}; const a = parseFloat(o.start), b = parseFloat(o.end); const m = !isNaN(a) && !isNaN(b) && b > a ? Math.round((b - a) * 10) / 10 : "";
+        return '<div class="odo-row" data-tk="' + escapeHtml(t) + '"><span class="tk">' + escapeHtml(truckShort(t)) + '</span>' +
+          '<input inputmode="decimal" data-f="start" value="' + escapeHtml(o.start || "") + '" placeholder="start">' +
+          '<input inputmode="decimal" data-f="end" value="' + escapeHtml(o.end || "") + '" placeholder="end">' +
+          '<span class="mi">' + (m !== "" ? commas(m) : "—") + '</span></div>'; }).join("") +
+      (tks.length ? "" : '<div class="map-hint" style="color:var(--muted); padding:6px 0;">Trucks show up here from your status changes, loads and inspections.</div>');
+    // inspections
+    const dv = dvirs.filter(d => d.date === logDay).sort((a,b) => a.at.localeCompare(b.at));
+    document.getElementById("logDvirs").innerHTML = dv.map(d => '<div class="dvir-row" data-dv="' + escapeHtml(d.id) + '"><div class="main"><b>' + (d.kind === "pre" ? "Pre-trip" : "Post-trip") + '</b> · ' +
+      escapeHtml(truckLbl(d.truck)) + (d.trailer ? " + " + escapeHtml(d.trailer) : "") + ' · ' + escapeHtml(fmtTime(d.at)) + '<br>' +
+      ((d.defects || []).length ? '<span class="prob' + (d.repairStatus === "repaired" ? " fixed" : d.safe === "no" ? " down" : "") + '">' +
+        (d.repairStatus === "repaired" ? "Repaired" : d.safe === "no" ? "Not safe" : "Defect") + '</span> <span class="sub" style="color:var(--muted)">' + escapeHtml(d.defects.map(x => x.label + (x.note ? " — " + x.note : "")).join("; ")) + '</span>'
+        : '<span class="prob fixed">No defects</span>') + '</div><button class="row-btn2">Open</button></div>').join("") ||
+      '<div class="map-hint" style="color:var(--muted); padding:10px 0 0;">No inspections ' + (logDay === today ? "yet today." : "this day.") + '</div>';
+    // loads from Load Sheet
+    const ld = loadsOn(logDay);
+    const tickets = ld.map(l => l.ticketNo).filter(Boolean);
+    const custs = []; ld.forEach(l => { if(l.customer && custs.indexOf(l.customer) < 0) custs.push(l.customer); });
+    document.getElementById("logLoads").innerHTML = ld.length
+      ? '<div style="font-size:14px; line-height:1.5;"><b>' + ld.length + (ld.length === 1 ? " load" : " loads") + '</b> · ' + escapeHtml(custs.join(", ")) +
+        (tickets.length ? '<br><span class="sub" style="color:var(--muted); font-family:\'SF Mono\',Menlo,monospace; font-size:12px;">Tickets: ' + escapeHtml(tickets.join(", ")) + '</span>' : '') +
+        '<br><span class="sub" style="color:var(--muted); font-size:12px;">First ' + escapeHtml(fmtTime(ld.map(l => l.deliveredAt || l.createdAt).sort()[0])) + ' · last ' + escapeHtml(fmtTime(ld.map(l => l.deliveredAt || l.createdAt).sort().pop())) + '. These print on the log as shipping documents.</span></div>'
+      : '<div class="map-hint" style="color:var(--muted);">No loads hauled this day.</div>';
+    // remarks + signature
+    const rm = document.getElementById("logRemarks");
+    if(document.activeElement !== rm) rm.value = r ? (r.remarks || "") : "";
+    const cert = document.getElementById("logCert");
+    if(r && r.certifiedAt){
+      const same = r.certHash === dayHash(logDay);
+      cert.innerHTML = same ? '<span class="signed">✓ Signed by ' + escapeHtml(r.certName) + '</span> · ' + escapeHtml(fmtDay(localDay(new Date(r.certifiedAt)))) + ' ' + escapeHtml(fmtTime(r.certifiedAt))
+        : '<span class="resign">Changed after you signed. Sign again.</span>';
+      document.getElementById("logSign").textContent = same ? "Signed ✓" : "Sign again";
+    } else {
+      cert.textContent = "Signing says the day's entries are true and correct.";
+      document.getElementById("logSign").textContent = "Sign this day";
+    }
+    renderLogHist(ev);
+  }
+  function renderLogHist(ev){
+    const today = localDay();
+    const rows = [];
+    for(let i = 0; i < 8; i++){
+      const d = shiftDay(today, -i);
+      const t = HOS.dayTotals(duty, d);
+      const r = dayRec(d);
+      const v = ev.violations.some(x => x.day === d);
+      const signed = r && r.certifiedAt && r.certHash === dayHash(d);
+      const used = t.d + t.on > 0;
+      rows.push('<tr data-day="' + d + '" class="' + (d === logDay ? "sel" : "") + '"><td>' + escapeHtml(fmtDay(d)) + '</td><td class="n">' + (used ? hm(t.d + t.on) : "—") + '</td><td class="n">' + (t.d ? hm(t.d) : "—") +
+        '</td><td class="n">' + (dayMiles(d) ? commas(dayMiles(d)) : "—") + '</td><td>' + (v ? '<span style="color:var(--cancelled); font-weight:900;">⚠</span> ' : '') +
+        (used ? (signed ? '<span style="color:#2b6845; font-weight:900;">✓</span>' : '<span style="color:var(--muted)">not signed</span>') : '') + '</td></tr>');
+    }
+    document.getElementById("logHist").innerHTML = '<tr><th>Day</th><th class="n">On duty</th><th class="n">Driving</th><th class="n">Miles</th><th></th></tr>' + rows.join("");
+    const c = ev.clocks;
+    document.getElementById("logCycleHint").textContent = "Cycle: " + hm(c.cycleUsed) + " used of " + c.cycleHrs + " hrs in " + c.cycleDays + " days" +
+      (c.restartIn ? " · 34-hour restart done in " + hm(c.restartIn) : "") + ".";
+  }
+  function renderLogAll(){ if(!isLogView()) return; renderLogLive(); renderLogDay(); }
+
+  document.getElementById("logHist").addEventListener("click", function(e){ const tr = e.target.closest("[data-day]"); if(tr){ logDay = tr.dataset.day; renderLogAll(); window.scrollTo({top: 0, behavior: "smooth"}); } });
+  document.getElementById("logPrev").addEventListener("click", function(){ logDay = shiftDay(logDay, -1); renderLogAll(); });
+  document.getElementById("logNext").addEventListener("click", function(){ if(logDay < localDay()){ logDay = shiftDay(logDay, 1); renderLogAll(); } });
+  document.getElementById("logMode").addEventListener("click", function(e){
+    const b = e.target.closest("button"); if(!b) return;
+    const r = dayRec(logDay, true); r.mode = b.dataset.mode; persistLog(); renderLogAll();
+  });
+  document.getElementById("logTrucks").addEventListener("change", function(e){
+    const row = e.target.closest("[data-tk]"); if(!row) return;
+    const r = dayRec(logDay, true); r.odo = r.odo || {};
+    const t = row.dataset.tk; r.odo[t] = r.odo[t] || {};
+    r.odo[t][e.target.dataset.f] = e.target.value.trim().replace(/[^\d.]/g, "");
+    persistLog(); renderLogDay();
+  });
+  document.getElementById("logRemarks").addEventListener("change", function(){
+    const r = dayRec(logDay, true); r.remarks = this.value.trim(); persistLog(); renderLogDay();
+  });
+  document.getElementById("logSign").addEventListener("click", function(){
+    const r0 = dayRec(logDay);
+    if(r0 && r0.certifiedAt && r0.certHash === dayHash(logDay)){ flash("Already signed"); return; }
+    if(logDay === localDay() && lastDuty() && HOS.isWork(lastDuty().status) && !confirm("You're still " + ST_LBL[lastDuty().status].toLowerCase() + ". Sign today anyway? You can sign again after you go off duty.")) return;
+    const name = prompt("I certify these entries are true and correct.\n\nType your name to sign " + fmtDay(logDay) + ":", getSettings().driver || "");
+    if(!name || !name.trim()) return;
+    if(!getSettings().driver) saveSettings({driver: name.trim()});
+    const r = dayRec(logDay, true);
+    r.certifiedAt = new Date().toISOString(); r.certName = name.trim(); r.certHash = dayHash(logDay);
+    persistLog(); renderLogDay(); flash("Signed " + fmtDay(logDay));
+  });
+
+  // ---------- print / CSV ----------
+  document.getElementById("logPrint").addEventListener("click", function(){
+    const st = getSettings(), r = dayRec(logDay) || {}, mode = modeFor(logDay);
+    const ev = HOS.evaluate(duty, Date.now(), hosOpts());
+    const tot = HOS.dayTotals(duty, logDay), sh = HOS.dayShift(duty, logDay);
+    const tks = trucksOn(logDay), odo = r.odo || {}, ld = loadsOn(logDay);
+    const e = s => escapeHtml(s == null ? "" : String(s));
+    let h = '<h1>' + (mode === "short" ? "Driver's time record (short-haul, 49 CFR 395.1(e)(1))" : "Driver's daily log (record of duty status)") + '</h1>';
+    h += '<table><tr><th>Date</th><td>' + e(longDay(logDay)) + '</td><th>Driver</th><td>' + e(r.certName || st.driver || "") + '</td></tr>' +
+      '<tr><th>Carrier</th><td>' + e(st.logCarrier || "Koch Excavating Co.") + '</td><th>Home terminal</th><td>' + e(st.logTerminal || "Columbus, NE") + '</td></tr>' +
+      '<tr><th>Trucks</th><td>' + e(tks.map(truckLbl).join(", ") || "—") + '</td><th>Total miles</th><td>' + (dayMiles(logDay) ? commas(dayMiles(logDay)) : "—") + '</td></tr>' +
+      '<tr><th>Shipping docs</th><td colspan="3">' + e(ld.length ? ld.length + " loads · " + Array.from(new Set(ld.map(l => l.customer).filter(Boolean))).join(", ") + (ld.some(l => l.ticketNo) ? " · tickets " + ld.map(l => l.ticketNo).filter(Boolean).join(", ") : "") : "—") + '</td></tr></table>';
+    if(mode === "short") h += '<table><tr><th>Start time</th><th>End time</th><th>Total on duty</th><th>Driving</th></tr><tr><td>' + (sh ? e(fmtTime(new Date(sh.start).toISOString())) : "—") + '</td><td>' +
+      (sh ? (sh.open ? "still on duty" : e(fmtTime(new Date(sh.end).toISOString()))) : "—") + '</td><td>' + hm(tot.d + tot.on) + '</td><td>' + hm(tot.d) + '</td></tr></table>';
+    h += HOS.gridSvg(duty, logDay, Date.now(), {violations: ev.violations, line: "#000"}).replace('class="log-grid"', 'style="width:100%;height:auto;"');
+    h += '<table><tr><th>Time</th><th>Status</th><th>Truck</th><th>Location</th><th>Note</th></tr>' + HOS.eventsOn(duty, logDay).map(x => '<tr><td>' + e(fmtTime(x.at)) + '</td><td>' + e(ST_LBL[x.status]) + '</td><td>' + e(x.truck ? truckLbl(x.truck) : "") +
+      (x.trailer ? " + " + e(x.trailer) : "") + '</td><td>' + e(x.place || (x.lat != null ? coordTxt(x.lat, x.lng) : "")) + '</td><td>' + e(x.note || "") + (x.edits && x.edits.length ? " (edited: " + e(x.edits.map(y => y.reason || "no reason").join("; ")) + ")" : "") + '</td></tr>').join("") + '</table>';
+    if(tks.length) h += '<table><tr><th>Truck</th><th>Start odometer</th><th>End odometer</th><th>Miles</th></tr>' + tks.map(t => { const o = odo[t] || {}; const a = parseFloat(o.start), b = parseFloat(o.end);
+      return '<tr><td>' + e(truckLbl(t)) + '</td><td>' + e(o.start || "") + '</td><td>' + e(o.end || "") + '</td><td>' + (!isNaN(a) && !isNaN(b) && b > a ? commas(Math.round((b - a) * 10) / 10) : "") + '</td></tr>'; }).join("") + '</table>';
+    const dv = dvirs.filter(d => d.date === logDay);
+    if(dv.length) h += '<table><tr><th>Inspection</th><th>Unit</th><th>Result</th><th>Signed</th></tr>' + dv.map(d => '<tr><td>' + (d.kind === "pre" ? "Pre-trip" : "Post-trip") + ' ' + e(fmtTime(d.at)) + '</td><td>' + e(truckLbl(d.truck)) + (d.trailer ? " + " + e(d.trailer) : "") +
+      (d.odo ? " · odo " + e(d.odo) : "") + '</td><td>' + ((d.defects || []).length ? e(d.defects.map(x => x.label + (x.note ? " — " + x.note : "")).join("; ")) + (d.safe === "no" ? " · NOT SAFE" : " · safe to operate") +
+      (d.repairStatus === "repaired" ? " · repaired " + e(d.repairNote || "") + " (" + e(d.repairedBy || "") + ")" : "") : "No defects") + '</td><td>' + e(d.sigName) + '</td></tr>').join("") + '</table>';
+    const vio = ev.violations.filter(v => v.day === logDay);
+    if(vio.length) h += '<p><b>Flagged:</b> ' + vio.map(v => e(v.text + " at " + fmtTime(v.at))).join("; ") + '</p>';
+    if(r.remarks) h += '<p><b>Remarks:</b> ' + e(r.remarks) + '</p>';
+    h += '<div class="sig">' + (r.certifiedAt ? "Certified true and correct: " + e(r.certName) + " · " + e(new Date(r.certifiedAt).toLocaleString()) : "Driver signature") + '</div>';
+    document.getElementById("printArea").innerHTML = h;
+    setTimeout(() => window.print(), 50);
+  });
+  document.getElementById("logCsv").addEventListener("click", function(){
+    const from = HOS.dayStart(shiftDay(localDay(), -7));
+    const rows = [["Date", "Time", "Status", "Truck", "Trailer", "Location", "Lat", "Lng", "Note", "Edits"]];
+    HOS.sorted(duty).filter(x => new Date(x.at).getTime() >= from).forEach(x => rows.push([localDay(new Date(x.at)), fmtTime(x.at), ST_LBL[x.status], x.truck || "", x.trailer || "",
+      x.place || "", x.lat != null ? x.lat.toFixed(5) : "", x.lng != null ? x.lng.toFixed(5) : "", x.note || "", (x.edits || []).map(y => y.reason || "edited").join("; ")]));
+    download("driver-log-" + localDay() + ".csv", rows.map(r => r.map(csvCell).join(",")).join("\r\n"), "text/csv");
+  });
+
+  // ---------- settings ----------
+  function renderLogSettings(){
+    const st = getSettings();
+    document.querySelectorAll("#setMode button").forEach(b => b.classList.toggle("on", b.dataset.mode === (st.logMode || "short")));
+    document.querySelectorAll("#setCycle button").forEach(b => b.classList.toggle("on", b.dataset.c === (st.logCycle || "70")));
+    document.getElementById("setCarrier").value = st.logCarrier || "";
+    document.getElementById("setTerminal").value = st.logTerminal || "";
+    const y = yard();
+    document.getElementById("setYardTxt").textContent = "Yard: " + y.name + (st.logYard ? "" : " — set it at the shop for an exact check");
+  }
+  document.getElementById("setMode").addEventListener("click", function(e){ const b = e.target.closest("button"); if(b){ saveSettings({logMode: b.dataset.mode}); renderLogSettings(); renderLogAll(); } });
+  document.getElementById("setCycle").addEventListener("click", function(e){ const b = e.target.closest("button"); if(b){ saveSettings({logCycle: b.dataset.c}); renderLogSettings(); renderLogAll(); } });
+  document.getElementById("setCarrier").addEventListener("change", function(){ saveSettings({logCarrier: this.value.trim()}); });
+  document.getElementById("setTerminal").addEventListener("change", function(){ saveSettings({logTerminal: this.value.trim()}); });
+  document.getElementById("setYardBtn").addEventListener("click", function(){
+    const btn = this; btn.textContent = "Finding you…";
+    getSpot().then(function(s){
+      btn.textContent = "Set the yard to where I am now";
+      if(!s){ flash("Couldn't get GPS. Check location permission."); return; }
+      saveSettings({logYard: {lat: s.lat, lng: s.lng, name: placeFor(s.lat, s.lng) || coordTxt(s.lat, s.lng)}});
+      renderLogSettings(); renderLogAll(); flash("Yard saved");
+    });
+  });
+
+  // ---------- duty strip on the Loads / Equipment tabs ----------
+  function renderDutyStrip(){
+    const el = document.getElementById("dutyStrip");
+    if(!hasLog()){ el.classList.remove("show"); return; }
+    const last = lastDuty(); const st = last ? last.status : "off";
+    const c = HOS.evaluate(duty, Date.now(), hosOpts()).clocks;
+    const short = modeFor(localDay()) === "short";
+    const warn = HOS.isWork(st) && (c.driveLeft <= 0 || c.windowLeft <= 0 || c.cycleLeft <= 0);
+    el.className = "duty-strip show s-" + st + (warn ? " warn" : "");
+    el.innerHTML = '<span class="st">' + ST_LBL[st] + '</span> ' + (last ? '<span class="cl">' + hm(Date.now() - new Date(last.at).getTime()) + '</span>' : '') +
+      (HOS.isWork(st) ? ' · <span class="cl">Drive ' + hm(c.driveLeft) + ' · ' + (short ? "Yard " : "Shift ") + hm(c.windowLeft) + '</span>' : ' · <span class="cl">tap for your log</span>');
+  }
+  document.getElementById("dutyStrip").addEventListener("click", function(){ setView("log"); });
+  setInterval(function(){ renderDutyStrip(); if(isLogView() && !document.querySelector(".modal-backdrop.open")) renderLogLive(); }, 30000);
+
   // ================= JOBS FROM THE OFFICE =================
   const ASSIGN_KEY = "loadsheet_assignments_v1", APPLIED_KEY = "loadsheet_assign_applied_v1", NEWJOBS_KEY = "loadsheet_newjobs_v1";
   let assignments = [];
@@ -3431,6 +4234,15 @@
       saveTrailers();
       if(document.getElementById("trailerModalBackdrop").classList.contains("open")) renderTrailerModal();
     },
+    getDutyLog: function(){ return duty; },
+    setDutyLog: function(arr){ duty = arr; persistDutyQuiet(); renderLogAll(); renderDutyStrip(); },
+    persistDutyQuiet: persistDutyQuiet,
+    getLogDays: function(){ return logDays; },
+    setLogDays: function(arr){ logDays = arr; persistLogDaysQuiet(); renderLogAll(); },
+    persistLogDaysQuiet: persistLogDaysQuiet,
+    getDvirs: function(){ return dvirs; },
+    setDvirs: function(arr){ dvirs = arr; persistDvirsQuiet(); renderLogAll(); },
+    persistDvirsQuiet: persistDvirsQuiet,
     getSettings: getSettings,
     saveSettings: saveSettings,
     flash: function(m){ flash(m); },
@@ -3443,11 +4255,12 @@
   loadHitches();
   loadUsage();
   loadAssignments();
+  loadLog();
   render();
   renderBackupStatus();
   renderTruckChip();
   renderTrailerChip();
-  try{ setView(localStorage.getItem("loadsheet_view") === "equip" ? "equip" : "loads"); }catch(e){ setView("loads"); }
+  try{ const sv = localStorage.getItem("loadsheet_view"); setView(sv === "equip" || sv === "log" ? sv : "loads"); }catch(e){ setView("loads"); }
   refreshTruckOptions();
   handleLink();
   if(getSettings().autoOn) startAuto();
@@ -3472,7 +4285,7 @@
       }).catch(function(){});
     });
   }
-  window.LOADSHEET_VERSION = "2026.10.29-2";
+  window.LOADSHEET_VERSION = "2026.11.10-1";
 })();
 </script>
 <script type="module" src="cloud.js"></script>

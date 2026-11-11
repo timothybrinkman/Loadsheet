@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#1c1b1a">
 <title>Load Sheet Office</title>
+<script src="hos.js"></script>
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
@@ -100,6 +101,18 @@
     background-image:radial-gradient(circle 2.5px, var(--asphalt) 2.4px, transparent 2.5px); background-size:14px 14px; background-position:6px 4px;
     background-color:var(--paper-dim); border-right:1px dashed #b9ac93;}
   .dname{font-size:17px; font-weight:900;}
+  .logboard{grid-template-columns:repeat(auto-fill, minmax(380px, 1fr));}
+  .log-grid{display:block; width:100%; height:auto; margin:8px 0 4px;}
+  .lst{display:inline-block; padding:3px 8px; border-radius:2px; font-size:11px; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; color:#fff;}
+  .lst.off, .lst.sb{background:var(--delivered);} .lst.d{background:var(--orange); color:#1c1200;} .lst.on{background:var(--enroute); color:#1c1200;}
+  .lclk{display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin:10px 0 4px;}
+  .lclk div{background:var(--paper-dim); border-radius:var(--radius); padding:6px 4px; text-align:center;}
+  .lclk b{display:block; font-family:"SF Mono",Menlo,monospace; font-size:16px;}
+  .lclk span{font-size:9px; font-weight:900; letter-spacing:0.07em; text-transform:uppercase; color:var(--muted);}
+  .lclk .low{background:#f6e5bf;} .lclk .out{background:var(--cancelled); color:#fff;} .lclk .out span{color:#fff;}
+  .lflag{margin-top:6px; padding:6px 8px; border-radius:var(--radius); background:#f3d3cf; color:#7d1f18; font-size:12px; font-weight:700;}
+  .lmeta{font-size:12px; color:var(--muted); line-height:1.5; margin-top:6px;}
+  .lmeta b{color:var(--ink);}
   .dnow{font-size:12px; color:var(--muted); margin-top:3px; line-height:1.45;}
   .dnow b{color:var(--ink);}
   .onclock{display:inline-block; margin-top:6px; font-size:10px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:#fff; background:var(--cancelled); padding:3px 7px; border-radius:2px;}
@@ -233,8 +246,13 @@
     </div>
 
     <div id="shopSec" style="display:none;">
-      <h2 class="sec" style="color:#e07a72;">Shop · open equipment problems</h2>
+      <h2 class="sec" style="color:#e07a72;">Shop · open truck &amp; equipment problems</h2>
       <div class="shop" id="shopRows"></div>
+    </div>
+
+    <div id="logSec" style="display:none;">
+      <h2 class="sec">Driver logs</h2>
+      <div class="board logboard" id="logBoard"></div>
     </div>
 
     <h2 class="sec">By driver / operator</h2>
@@ -394,7 +412,7 @@ function ranges(nums){
 }
 
 let assignments = new Map(), editing = null;
-let backend, me = null, role = null, records = new Map(), hitches = new Map(), usage = new Map(), trailerList = [], equipList = [], unsubs = [], crew = [];
+let backend, me = null, role = null, records = new Map(), hitches = new Map(), usage = new Map(), duty = new Map(), logDays = new Map(), dvirs = new Map(), trailerList = [], equipList = [], unsubs = [], crew = [];
 $("day").value = localDay();
 
 // ---------- what happened on the chosen day ----------
@@ -422,6 +440,7 @@ function dayData(){
 
 function render(){
   const {day, L, T, H, U, allL, allT, allH, allU, drv} = dayData();
+  try { renderLogs(); } catch (e) { console.error(e); }
   $("dayTitle").textContent = longDay(day) + (day === localDay() ? " · today, live" : "");
 
   // filter choices come from the whole day
@@ -822,15 +841,30 @@ $("emailFill").addEventListener("click", () => {
 
 // ---------- shop: open problems ----------
 function renderShop(){
+  const openDv = Array.from(dvirs.values()).filter(d => (d.defects || []).length && d.repairStatus !== "repaired")
+    .sort((a,b) => (a.safe === "no" ? 0 : 1) - (b.safe === "no" ? 0 : 1) || (b.at || "").localeCompare(a.at || ""));
+  const dvHtml = openDv.map(d => '<div class="shop-row"><span class="sev' + (d.safe === "no" ? ' down' : '') + '">' + (d.safe === "no" ? "Not safe" : "Can run") + '</span>' +
+    '<div class="w"><b>' + esc(truckLbl(d.truck)) + (d.trailer ? ' + ' + esc(d.trailer) : '') + '</b> · ' + esc(d.defects.map(x => x.label + (x.note ? " — " + x.note : "")).join("; ")) +
+    '<br><span style="color:var(--muted); font-size:12px;">' + (d.kind === "pre" ? "Pre-trip" : "Post-trip") + ' · ' + esc(d.sigName || d.driverName || d.driverEmail || "") + ' · ' + esc(longDay(d.date)) + ' ' + esc(fmtTime(d.at)) + '</span></div>' +
+    '<button class="btn" data-repair="' + esc(d.id) + '">Mark repaired</button></div>').join("");
   const open = Array.from(usage.values()).filter(u => u.problem && u.problemStatus !== "fixed")
     .sort((a,b) => (a.problemSev === "down" ? 0 : 1) - (b.problemSev === "down" ? 0 : 1) || (b.date || "").localeCompare(a.date || ""));
-  $("shopSec").style.display = open.length ? "" : "none";
-  $("shopRows").innerHTML = open.map(u => '<div class="shop-row"><span class="sev' + (u.problemSev === "down" ? ' down' : '') + '">' + (u.problemSev === "down" ? "Down" : "Can run") + '</span>' +
+  $("shopSec").style.display = open.length || openDv.length ? "" : "none";
+  $("shopRows").innerHTML = dvHtml + open.map(u => '<div class="shop-row"><span class="sev' + (u.problemSev === "down" ? ' down' : '') + '">' + (u.problemSev === "down" ? "Down" : "Can run") + '</span>' +
     '<div class="w"><b>' + esc(u.equipLabel || "Machine") + '</b> · ' + esc(u.problem) + '<br><span style="color:var(--muted); font-size:12px;">' +
     esc(u.driverName || u.driverEmail || "") + ' · ' + esc(longDay(u.date)) + (u.job ? ' · ' + esc(u.job) : '') + '</span></div>' +
     '<button class="btn" data-fix="' + esc(u.id) + '">Mark fixed</button></div>').join("");
 }
 $("shopRows").addEventListener("click", e => {
+  const rp = e.target.closest("[data-repair]");
+  if (rp){
+    const note = prompt("What was repaired? (shows on the driver's next pre-trip)", "");
+    if (note === null) return;
+    const now = new Date().toISOString();
+    backend.merge("dvirs", rp.dataset.repair, {repairStatus: "repaired", repairedAt: now, repairedBy: me.email, repairNote: note, updatedAt: now})
+      .then(() => toast("Marked repaired. The driver sees it on the next pre-trip.")).catch(err => toast("Couldn't update: " + (err.code || err)));
+    return;
+  }
   const b = e.target.closest("[data-fix]"); if (!b) return;
   const note = prompt("What was done? (optional)", "");
   if (note === null) return;
@@ -896,13 +930,62 @@ $("addTrailer").addEventListener("click", () => {
     .catch(err => toast("Couldn't add: " + (err.code || err)));
 });
 
+// ---------- driver logs ----------
+function renderLogs(){
+  if (typeof HOS === "undefined") return;
+  const day = $("day").value || localDay(), fD = $("fDriver").value;
+  const key = r => r.driverEmail || r.driverUid || "unknown";
+  const by = new Map();
+  const add = (r, k) => { const id = key(r); if (!by.has(id)) by.set(id, {name: r.driverName || r.driverEmail || "Driver", duty: [], days: [], dv: []}); by.get(id)[k].push(r); };
+  for (const r of duty.values()) add(r, "duty");
+  for (const r of logDays.values()) add(r, "days");
+  for (const r of dvirs.values()) add(r, "dv");
+  const now = Date.now(), today = localDay();
+  const cards = [];
+  for (const [id, g] of by){
+    if (fD && id !== fD) continue;
+    const used = HOS.eventsOn(g.duty, day).length || HOS.dayShift(g.duty, day) || g.dv.some(d => d.date === day);
+    if (!used) continue;
+    const dr = g.days.filter(d => d.date === day).sort((a,b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))[0] || {};
+    const modeFor = d => { const r = g.days.filter(x => x.date === d).sort((a,b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))[0]; return (r && r.mode) || "short"; };
+    const ev = HOS.evaluate(g.duty, now, {modeFor});
+    const c = ev.clocks, short = modeFor(today) === "short";
+    const tot = HOS.dayTotals(g.duty, day, now), sh = HOS.dayShift(g.duty, day, now);
+    let mi = 0; Object.keys(dr.odo || {}).forEach(t => { const o = dr.odo[t] || {}; const a = parseFloat(o.start), b = parseFloat(o.end); if (!isNaN(a) && !isNaN(b) && b > a && b - a < 2000) mi += b - a; });
+    const last = HOS.sorted(g.duty).filter(e => new Date(e.at).getTime() <= now).pop();
+    const tile = (lbl, ms, warn) => '<div class="' + (ms <= 0 ? "out" : ms <= warn ? "low" : "") + '"><b>' + HOS.hm(Math.max(0, ms)) + '</b><span>' + lbl + '</span></div>';
+    const working = last && HOS.isWork(last.status);
+    const dv = g.dv.filter(d => d.date === day).sort((a,b) => (a.at || "").localeCompare(b.at || ""));
+    const vio = ev.violations.filter(v => v.day === day);
+    const trucks = Array.from(new Set(HOS.eventsOn(g.duty, day).map(e => e.truck).filter(Boolean).concat(dv.map(d => d.truck))));
+    let h = '<div class="dcard"><div class="dname">' + esc(g.name) + '</div>';
+    if (day === today) h += '<div class="dnow">' + (last ? '<span class="lst ' + last.status + '">' + esc(HOS.STATUS[last.status].label) + '</span> since <b>' + esc(fmtTime(last.at)) + '</b>' +
+      (last.truck ? ' · ' + esc(truckLbl(last.truck)) : '') + (last.place ? ' · ' + esc(last.place) : '') : 'No log yet') + '</div>' +
+      (working ? '<div class="lclk">' + tile("Drive left", c.driveLeft, 3600000) + tile(short ? "Back to yard" : "Shift left", c.windowLeft, 3600000) +
+        tile("Break in", short ? 8 * 3600000 : c.breakLeft, 1800000) + tile("Cycle left", c.cycleLeft, 5 * 3600000) + '</div>' : '');
+    h += HOS.gridSvg(g.duty, day, now, {violations: ev.violations});
+    h += '<div class="lmeta">' + (modeFor(day) === "short" ? "Short-haul" : "Full log") + (sh ? ' · <b>' + esc(fmtTime(new Date(sh.start).toISOString())) + '–' + (sh.open ? "now" : esc(fmtTime(new Date(sh.end).toISOString()))) + '</b>' : '') +
+      ' · on duty <b>' + HOS.hm(tot.d + tot.on) + '</b> · driving <b>' + HOS.hm(tot.d) + '</b>' + (mi ? ' · <b>' + commas(Math.round(mi * 10) / 10) + '</b> mi' : '') +
+      (trucks.length ? ' · ' + esc(trucks.map(truckLbl).join(", ")) : '') + '<br>' +
+      (dr.certifiedAt ? '✓ Signed by ' + esc(dr.certName) + ' ' + esc(fmtTime(dr.certifiedAt)) : '<span style="color:var(--cancelled)">Not signed</span>') +
+      (dv.length ? '<br>' + dv.map(d => (d.kind === "pre" ? "Pre-trip " : "Post-trip ") + esc(truckLbl(d.truck)) + ' ' + esc(fmtTime(d.at)) + ': ' +
+        ((d.defects || []).length ? '<b>' + esc(d.defects.map(x => x.label).join(", ")) + '</b>' + (d.repairStatus === "repaired" ? ' (repaired)' : '') : 'no defects')).join('<br>') : '<br>No inspections') +
+      (dr.remarks ? '<br>Remarks: ' + esc(dr.remarks) : '') + '</div>';
+    h += vio.map(v => '<div class="lflag">⚠ ' + esc(v.text) + ' · ' + esc(fmtTime(v.at)) + '</div>').join("");
+    h += '</div>';
+    cards.push(h);
+  }
+  $("logSec").style.display = cards.length ? "" : "none";
+  $("logBoard").innerHTML = cards.join("");
+}
+
 // ---------- controls ----------
-["fDriver","fTruck"].forEach(id => $(id).addEventListener("change", render));
+["fDriver","fTruck"].forEach(id => $(id).addEventListener("change", () => { render(); renderLogs(); }));
 $("day").addEventListener("change", render);
 $("prevDay").addEventListener("click", () => { $("day").value = shiftDay($("day").value || localDay(), -1); render(); });
 $("nextDay").addEventListener("click", () => { $("day").value = shiftDay($("day").value || localDay(), 1); render(); });
 $("todayBtn").addEventListener("click", () => { $("day").value = localDay(); render(); });
-setInterval(() => { if (records.size) render(); }, 60000);   // keep running clocks current
+setInterval(() => { if (records.size || duty.size) render(); }, 60000);   // keep running clocks current
 
 function live(txt, cls){ const l = $("live"); l.textContent = txt; l.className = "live " + (cls || ""); }
 function gate(text, showSignIn){
@@ -920,7 +1003,7 @@ async function start(){
   window.addEventListener("offline", () => live("Offline · showing last data", "warn"));
   backend.onAuth(async u => {
     unsubs.forEach(f => { try { f(); } catch (e) {} }); unsubs = [];
-    records = new Map(); hitches = new Map(); usage = new Map(); equipList = []; assignments = new Map(); me = u; role = null;
+    records = new Map(); hitches = new Map(); usage = new Map(); duty = new Map(); logDays = new Map(); dvirs = new Map(); equipList = []; assignments = new Map(); me = u; role = null;
     $("signOutBtn").style.display = u ? "" : "none";
     if (!u){ gate("Sign in with the Google account the admin added to the crew list as Office or Admin.", true); live("Signed out", "warn"); return; }
     gate("Checking access for " + esc(u.email) + "…", false);
@@ -947,6 +1030,9 @@ async function start(){
     unsubs.push(backend.watchAll("records", into(records), onErr));
     unsubs.push(backend.watchAll("hitches", into(hitches), onErr));
     unsubs.push(backend.watchAll("usage", snap => { into(usage)(snap); renderShop(); renderEquipList(); }, onErr));
+    unsubs.push(backend.watchAll("duty", snap => { into(duty)(snap); renderLogs(); }, onErr));
+    unsubs.push(backend.watchAll("logdays", snap => { into(logDays)(snap); renderLogs(); }, onErr));
+    unsubs.push(backend.watchAll("dvirs", snap => { into(dvirs)(snap); renderShop(); renderLogs(); }, onErr));
     unsubs.push(backend.watchCol("equipment", list => { equipList = list; renderEquipList(); }, () => {}));
     unsubs.push(backend.watchCol("trailers", list => { trailerList = list; renderTrailers(); }, () => {}));
     unsubs.push(backend.watchMembers(list => { crew = list; if (role === "admin") renderCrew(); renderDriverChips(); }, () => {}));

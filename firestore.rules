@@ -26,12 +26,12 @@ service cloud.firestore {
       allow write: if isAdmin(org);
     }
 
-    // loads / hourly jobs, trailer hookups and equipment hours: same ownership rules
+    // loads / hourly jobs, trailer hookups, equipment hours and driver logs: same ownership rules
     match /orgs/{org}/{kind}/{id} {
-      allow read: if kind in ['records', 'hitches', 'usage'] && (isOffice(org) || (isMember(org) && mine()));
-      allow create: if kind in ['records', 'hitches', 'usage'] && isMember(org) && staysMine();
-      allow update: if kind in ['records', 'hitches', 'usage'] && (isOffice(org) || (isMember(org) && mine() && staysMine()));
-      allow delete: if kind in ['records', 'hitches', 'usage'] && (isOffice(org) || (isMember(org) && mine()));
+      allow read: if kind in ['records', 'hitches', 'usage', 'duty', 'logdays', 'dvirs'] && (isOffice(org) || (isMember(org) && mine()));
+      allow create: if kind in ['records', 'hitches', 'usage', 'duty', 'logdays', 'dvirs'] && isMember(org) && staysMine();
+      allow update: if kind in ['records', 'hitches', 'usage', 'duty', 'logdays', 'dvirs'] && (isOffice(org) || (isMember(org) && mine() && staysMine()));
+      allow delete: if kind in ['records', 'hitches', 'usage', 'duty', 'logdays', 'dvirs'] && (isOffice(org) || (isMember(org) && mine()));
     }
 
     // machine list: office manages it; operators can only move a machine's hour meter reading forward

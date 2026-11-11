@@ -4,6 +4,9 @@
 //   records  - loads and hourly jobs
 //   hitches  - trailer hook / drop events
 //   usage    - equipment hours (machine, job, hour meter, problems for the shop)
+//   duty     - driver log: one duty-status change (off / sleeper / driving / on duty)
+//   logdays  - driver log: one day's mode, odometers, remarks and signature
+//   dvirs    - pre-trip / post-trip inspections and their defects (office marks them repaired)
 //   trailers - the crew's shared trailer list (read here, managed on the office page)
 //   equipment- the crew's machine list (read here, managed on the office page)
 // - Local change  -> stamp updatedAt/driver, upload what changed, delete what was removed
@@ -19,7 +22,13 @@ const SETS = [
   { col: "hitches", mapKey: "loadsheet_synced_hitches_v1", label: "trailer hookup",
     get: () => App.getHitches(), set: a => App.setHitches(a), quiet: () => App.persistHitchesQuiet() },
   { col: "usage", mapKey: "loadsheet_synced_usage_v1", label: "equipment entry",
-    get: () => App.getUsage(), set: a => App.setUsage(a), quiet: () => App.persistUsageQuiet() }
+    get: () => App.getUsage(), set: a => App.setUsage(a), quiet: () => App.persistUsageQuiet() },
+  { col: "duty", mapKey: "loadsheet_synced_duty_v1", label: "log entry",
+    get: () => App.getDutyLog(), set: a => App.setDutyLog(a), quiet: () => App.persistDutyQuiet() },
+  { col: "logdays", mapKey: "loadsheet_synced_logdays_v1", label: "log day",
+    get: () => App.getLogDays(), set: a => App.setLogDays(a), quiet: () => App.persistLogDaysQuiet() },
+  { col: "dvirs", mapKey: "loadsheet_synced_dvirs_v1", label: "inspection",
+    get: () => App.getDvirs(), set: a => App.setDvirs(a), quiet: () => App.persistDvirsQuiet() }
 ];
 
 let backend = null, user = null, member = null, unsubs = [];
