@@ -65,6 +65,7 @@ function track(p, set, id) {
    });
 }
 const allReady = () => SETS.every(s => s.ready);
+const pl = w => /[^aeiou]y$/.test(w) ? w.slice(0, -1) + "ies" : w + "s";
 
 // ---------- local -> cloud ----------
 function pushSet(set) {
@@ -191,11 +192,12 @@ async function handleUser(u) {
   App.saveSettings({ cloudUid: u.uid, cloudName: u.name, cloudRole: member.role });
   if (!App.getSettings().driver) App.saveSettings({ driver: u.name });
   state = "on";
-  const onErr = err => { lastErr = (err && err.code) || "error"; render(); };
-  SETS.forEach(set => unsubs.push(backend.watchMine(set.col, u.uid, snap => onRemote(set, snap), onErr)));
-  unsubs.push(backend.watchCol("trailers", list => App.setTrailers(list.filter(t => !t.retired)), () => {}));
-  unsubs.push(backend.watchCol("equipment", list => App.setEquipment(list), () => {}));
-  unsubs.push(backend.watchWhere("assignments", "assignedTo", u.email, list => App.setAssignments(list), () => {}));
+  // a refused read names what it was reading (usually means the Firestore rules need re-publishing)
+  const onErr = what => err => { lastErr = (err && err.code) || "error"; lastErrWhat = "reading " + what; console.warn("[LoadSheet sync] read refused:", what, err); render(); };
+  SETS.forEach(set => unsubs.push(backend.watchMine(set.col, u.uid, snap => onRemote(set, snap), onErr(pl(set.label)))));
+  unsubs.push(backend.watchCol("trailers", list => App.setTrailers(list.filter(t => !t.retired)), onErr("the trailer list")));
+  unsubs.push(backend.watchCol("equipment", list => App.setEquipment(list), onErr("the machine list")));
+  unsubs.push(backend.watchWhere("assignments", "assignedTo", u.email, list => App.setAssignments(list), onErr("office jobs")));
   // trailers added on this device while signed out join the crew list now
   App.getTrailers().filter(t => t.localOnly).forEach(t => { const c = Object.assign({}, t); delete c.localOnly; delete t.localOnly; addTrailer(c); });
   render();
@@ -233,9 +235,9 @@ function render() {
     detail = (user ? user.email : "This account") + " isn't on the crew list yet. Ask the office to add it, then tap Check again. Your loads stay on this device and upload once you're added.";
   } else if (state === "on") {
     if (lastErr === "permission-denied") {
-      const plural = w => w.replace(/y$/, "ie") + "s";
+      const plural = w => /^reading /.test(w) ? w : pl(w);
       txt = "Sync blocked" + (lastErrWhat ? " · " + plural(lastErrWhat) : ""); cls = "bad";
-      detail = "The database refused " + (lastErrWhat ? "your " + plural(lastErrWhat) : "an upload") + ". Usually the Firebase security rules need re-publishing after an app update (ask the office). Nothing is lost: it stays on this device and uploads once that's fixed. Close and reopen the app to retry.";
+      detail = "The database refused " + (lastErrWhat ? (/^reading /.test(lastErrWhat) ? plural(lastErrWhat) : "your " + plural(lastErrWhat)) : "an upload") + ". Usually the Firebase security rules need re-publishing after an app update (ask the office). Nothing is lost: it stays on this device and uploads once that's fixed. Close and reopen the app to retry.";
     }
     else if (!online) { txt = "No signal" + (waiting ? " · " + (pending || "some") + " waiting" : ""); cls = "warn"; detail = "Loads are saved on this device and upload automatically when you get service."; }
     else if (waiting) { txt = "Syncing…"; detail = "Uploading your changes."; }
@@ -267,7 +269,13 @@ async function start() {
   });
   window.addEventListener("online", () => { if (state === "notmember" && user) handleUser(user); else { onLocalChange(); render(); } });
   // retry anything refused earlier when the app comes back to the front
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && state === "on" && lastErr) { lastErr = ""; lastErrWhat = ""; onLocalChange(); render(); } });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden || state !== "on" || !lastErr) return;
+    const wasRead = /^reading /.test(lastErrWhat);
+    lastErr = ""; lastErrWhat = "";
+    if (wasRead && user) handleUser(user);           // a refused listener is closed for good: reconnect
+    else { onLocalChange(); render(); }
+  });
   setInterval(() => { if (state === "notmember" && user && navigator.onLine) handleUser(user); }, 60000);
   window.addEventListener("offline", render);
   state = "signedout"; render();

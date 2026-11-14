@@ -1025,18 +1025,24 @@ async function start(){
     clearForm();
     $("equipSec").style.display = "";
     live(navigator.onLine ? "Live" : "Offline · showing last data", navigator.onLine ? "ok" : "warn");
-    const onErr = err => { live("Error: " + (err.code || err), "warn"); };
+    // name what was refused, so a rules problem is easy to spot
+    const blocked = new Set();
+    const onErr = name => err => {
+      blocked.add(name);
+      live("Can't read " + Array.from(blocked).join(", ") + ": " + ((err && err.code) || err) + (err && err.code === "permission-denied" ? " (check the Firestore rules)" : ""), "warn");
+      console.warn("[LoadSheet office] read refused:", name, err);
+    };
     const into = map => snap => { snap.changes.forEach(ch => { if (ch.type === "removed") map.delete(ch.id); else map.set(ch.id, Object.assign({id: ch.id}, ch.data)); }); render(); };
-    unsubs.push(backend.watchAll("records", into(records), onErr));
-    unsubs.push(backend.watchAll("hitches", into(hitches), onErr));
-    unsubs.push(backend.watchAll("usage", snap => { into(usage)(snap); renderShop(); renderEquipList(); }, onErr));
-    unsubs.push(backend.watchAll("duty", snap => { into(duty)(snap); renderLogs(); }, onErr));
-    unsubs.push(backend.watchAll("logdays", snap => { into(logDays)(snap); renderLogs(); }, onErr));
-    unsubs.push(backend.watchAll("dvirs", snap => { into(dvirs)(snap); renderShop(); renderLogs(); }, onErr));
+    unsubs.push(backend.watchAll("records", into(records), onErr("records")));
+    unsubs.push(backend.watchAll("hitches", into(hitches), onErr("hitches")));
+    unsubs.push(backend.watchAll("usage", snap => { into(usage)(snap); renderShop(); renderEquipList(); }, onErr("usage")));
+    unsubs.push(backend.watchAll("duty", snap => { into(duty)(snap); renderLogs(); }, onErr("duty")));
+    unsubs.push(backend.watchAll("logdays", snap => { into(logDays)(snap); renderLogs(); }, onErr("logdays")));
+    unsubs.push(backend.watchAll("dvirs", snap => { into(dvirs)(snap); renderShop(); renderLogs(); }, onErr("dvirs")));
     unsubs.push(backend.watchCol("equipment", list => { equipList = list; renderEquipList(); }, () => {}));
     unsubs.push(backend.watchCol("trailers", list => { trailerList = list; renderTrailers(); }, () => {}));
     unsubs.push(backend.watchMembers(list => { crew = list; if (role === "admin") renderCrew(); renderDriverChips(); }, () => {}));
-    unsubs.push(backend.watchCol("assignments", list => { assignments = new Map(list.map(a => [a.id, a])); renderAssignments(); }, onErr));
+    unsubs.push(backend.watchCol("assignments", list => { assignments = new Map(list.map(a => [a.id, a])); renderAssignments(); }, onErr("assignments")));
     render();
   });
 }
