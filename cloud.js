@@ -32,7 +32,7 @@ const SETS = [
 ];
 
 let backend = null, user = null, member = null, unsubs = [];
-let pending = 0, checkingQueue = false, lastErr = "", state = "off";
+let pending = 0, checkingQueue = false, lastErr = "", lastErrWhat = "", state = "off";
 
 // ---------- helpers ----------
 function readMap(set) { try { return JSON.parse(localStorage.getItem(set.mapKey)) || {}; } catch (e) { return {}; } }
@@ -51,10 +51,18 @@ function baseHash(rec) {
 function unsyncedCount() {
   return SETS.reduce((n, set) => { const map = readMap(set); return n + set.get().filter(r => map[r.id] !== baseHash(r)).length; }, 0);
 }
-function track(p) {
+// set/id: a refused record is un-marked so it uploads again next time (e.g. once the rules are fixed)
+function track(p, set, id) {
   pending++; render();
-  p.then(() => { pending--; lastErr = ""; render(); })
-   .catch(err => { pending--; lastErr = (err && err.code) || "error"; render(); });
+  p.then(() => { pending--; if (!set || lastErrWhat === set.label) { lastErr = ""; lastErrWhat = ""; } render(); })
+   .catch(err => {
+     pending--;
+     lastErr = (err && err.code) || "error";
+     lastErrWhat = set ? set.label : "";
+     if (set && id) { const m = readMap(set); delete m[id]; writeMap(set, m); }
+     console.warn("[LoadSheet sync] upload refused:", set ? set.col : "", id || "", lastErr);
+     render();
+   });
 }
 const allReady = () => SETS.every(s => s.ready);
 
@@ -72,7 +80,7 @@ function pushSet(set) {
     if (map[r.id] === hb) return;
     r.updatedAt = now; r.driverUid = user.uid; r.driverName = user.name; r.driverEmail = user.email;
     map[r.id] = hb; stamped = true;
-    track(backend.put(set.col, r.id, clean(r)));
+    track(backend.put(set.col, r.id, clean(r)), set, r.id);
   });
   Object.keys(map).forEach(id => {
     if (!ids.has(id)) { delete map[id]; track(backend.del(set.col, id)); }
@@ -140,7 +148,8 @@ function bumpMeter(id, meter) {
 // a driver can mark a job sent by the office as seen / done / removed (the rules allow only those fields)
 function markAssignment(id, patch) {
   if (state !== "on") return;
-  track(backend.merge("assignments", id, patch));
+  // not critical: a refused seen/done mark never blocks sync
+  backend.merge("assignments", id, patch).catch(err => console.warn("[LoadSheet sync] job status not saved:", err && err.code));
 }
 
 // ---------- sign-in / devices shared between drivers ----------
@@ -223,7 +232,11 @@ function render() {
     txt = "Not on the crew list"; cls = "bad";
     detail = (user ? user.email : "This account") + " isn't on the crew list yet. Ask the office to add it, then tap Check again. Your loads stay on this device and upload once you're added.";
   } else if (state === "on") {
-    if (lastErr === "permission-denied") { txt = "Sync blocked"; cls = "bad"; detail = "The database refused an upload. Ask the office to check your crew list role (or re-publish the latest security rules)."; }
+    if (lastErr === "permission-denied") {
+      const plural = w => w.replace(/y$/, "ie") + "s";
+      txt = "Sync blocked" + (lastErrWhat ? " · " + plural(lastErrWhat) : ""); cls = "bad";
+      detail = "The database refused " + (lastErrWhat ? "your " + plural(lastErrWhat) : "an upload") + ". Usually the Firebase security rules need re-publishing after an app update (ask the office). Nothing is lost: it stays on this device and uploads once that's fixed. Close and reopen the app to retry.";
+    }
     else if (!online) { txt = "No signal" + (waiting ? " · " + (pending || "some") + " waiting" : ""); cls = "warn"; detail = "Loads are saved on this device and upload automatically when you get service."; }
     else if (waiting) { txt = "Syncing…"; detail = "Uploading your changes."; }
     else { txt = "Synced"; cls = "ok"; detail = "Everything on this device is saved to the crew database."; }
@@ -252,7 +265,9 @@ async function start() {
   document.getElementById("syncLine").addEventListener("click", () => {
     if (state === "signedout") signIn(); else App.openData();
   });
-  window.addEventListener("online", () => { if (state === "notmember" && user) handleUser(user); else render(); });
+  window.addEventListener("online", () => { if (state === "notmember" && user) handleUser(user); else { onLocalChange(); render(); } });
+  // retry anything refused earlier when the app comes back to the front
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && state === "on" && lastErr) { lastErr = ""; lastErrWhat = ""; onLocalChange(); render(); } });
   setInterval(() => { if (state === "notmember" && user && navigator.onLine) handleUser(user); }, 60000);
   window.addEventListener("offline", render);
   state = "signedout"; render();
